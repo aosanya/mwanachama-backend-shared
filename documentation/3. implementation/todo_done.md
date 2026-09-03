@@ -17,12 +17,12 @@
 No audience of its own; a dependency of [mwanachama-git](../../../mwanachama-git)
 and [mwanachama-taskmanager](../../../mwanachama-taskmanager), which are in turn
 wired into [mwanachama-api-gateway](../../../mwanachama-api-gateway) for
-[mwanachama-kazi](../../../mwanachama-kazi).
+[mwanachama-frontend-kazi](../../../mwanachama-frontend-kazi).
 
 ### Why this repo exists
 
 `CodeValdGit` and `CodeValdWork` are ArangoDB-backed Go libraries built for
-CodeValdCortex agencies. `mwanachama-kazi` needs the same git-like versioned
+CodeValdCortex agencies. `mwanachama-frontend-kazi` needs the same git-like versioned
 content and task/workflow management, but `mwanachama-api-gateway` standardizes
 on Postgres and runs as a single service (no sub-services). Both source
 libraries lean on a shared package, `CodeValdSharedLib/entitygraph` — a
