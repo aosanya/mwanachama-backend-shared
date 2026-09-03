@@ -4,7 +4,7 @@ import (
 	"context"
 	"sort"
 
-	"github.com/aosanya/mwanachama-go-shared/entitygraph"
+	"github.com/aosanya/mwanachama-backend-shared/entitygraph"
 )
 
 // TraverseGraph implements entitygraph.DataManager via a breadth-first walk

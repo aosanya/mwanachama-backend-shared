@@ -1,9 +1,9 @@
 // Package postgres is the Postgres implementation of
-// github.com/aosanya/mwanachama-go-shared/entitygraph's DataManager and
+// github.com/aosanya/mwanachama-backend-shared/entitygraph's DataManager and
 // SchemaManager interfaces.
 //
 // Stays behind database/sql (via the pgx stdlib driver) rather than exposing
-// a pgxpool.Pool, matching mwanachama-api-gateway's own store convention —
+// a pgxpool.Pool, matching mwanachama-backend-api-gateway's own store convention —
 // callers depend on the standard interface, not on pgx types directly.
 package postgres
 

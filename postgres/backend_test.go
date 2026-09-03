@@ -6,13 +6,13 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aosanya/mwanachama-go-shared/entitygraphtest"
-	"github.com/aosanya/mwanachama-go-shared/postgres"
+	"github.com/aosanya/mwanachama-backend-shared/entitygraphtest"
+	"github.com/aosanya/mwanachama-backend-shared/postgres"
 )
 
 // TestBackend_Conformance runs the shared entitygraphtest suite against a
 // real Postgres database. Skipped unless POSTGRES_URL is set — mirroring
-// mwanachama-api-gateway's split ("make test" covers memory with no
+// mwanachama-backend-api-gateway's split ("make test" covers memory with no
 // database; "make pg && make test-pg" covers Postgres) so this package's
 // default `go test ./...` needs no docker daemon.
 func TestBackend_Conformance(t *testing.T) {

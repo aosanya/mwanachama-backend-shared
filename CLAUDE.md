@@ -2,12 +2,12 @@
 
 Guidance for Claude Code working in this repository.
 
-## Project: mwanachama-go-shared
+## Project: mwanachama-backend-shared
 
 The shared Postgres entity-graph engine underneath
-[mwanachama-git](../mwanachama-git) and
-[mwanachama-taskmanager](../mwanachama-taskmanager). Module path
-`github.com/aosanya/mwanachama-go-shared`.
+[mwanachama-backend-git](../mwanachama-backend-git) and
+[mwanachama-backend-taskmanager](../mwanachama-backend-taskmanager). Module path
+`github.com/aosanya/mwanachama-backend-shared`.
 
 Ported from `CodeValdSharedLib/entitygraph` (an ArangoDB-backed generic
 entity/relationship graph store built for CodeValdCortex agencies), but:
@@ -20,7 +20,7 @@ entity/relationship graph store built for CodeValdCortex agencies), but:
   public library — `CodeValdSharedLib` is private and unpublished — so the
   `Entity`/`Relationship`/`DataManager`/`SchemaManager`/`Schema` contract is
   redefined here, not imported.
-- **No gRPC / sub-service shape.** `mwanachama-api-gateway` runs as one
+- **No gRPC / sub-service shape.** `mwanachama-backend-api-gateway` runs as one
   service and imports libraries directly; there is no `proto/`, `cmd/`, or
   registrar/heartbeat layer here, only a trivial local `Publisher` interface
   (`Publish(ctx, topic string, payload any) error`) for callers to plug into.
@@ -28,7 +28,7 @@ entity/relationship graph store built for CodeValdCortex agencies), but:
 ## Key invariants (carry these into the Postgres port)
 
 - **The `DataManager`/`SchemaManager` interfaces must stay storage-agnostic**
-  Go — this is the seam `mwanachama-git` and `mwanachama-taskmanager` build
+  Go — this is the seam `mwanachama-backend-git` and `mwanachama-backend-taskmanager` build
   their ported business logic against, mirroring how `CodeValdGit`'s
   `git_impl_*.go` and `CodeValdWork`'s `task*.go` only ever call
   `entitygraph.DataManager`, never the ArangoDB driver directly.

@@ -3,7 +3,7 @@ package entitygraph
 import (
 	"fmt"
 
-	"github.com/aosanya/mwanachama-go-shared/schema"
+	"github.com/aosanya/mwanachama-backend-shared/schema"
 )
 
 // FindTypeDef returns the [schema.TypeDefinition] for the given typeName

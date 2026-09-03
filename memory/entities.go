@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/aosanya/mwanachama-go-shared/entitygraph"
+	"github.com/aosanya/mwanachama-backend-shared/entitygraph"
 )
 
 // CreateEntity implements entitygraph.DataManager. See postgres.Backend's

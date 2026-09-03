@@ -1,5 +1,5 @@
-// Package events defines the trivial publish contract mwanachama-git and
-// mwanachama-taskmanager use to emit domain events, replacing
+// Package events defines the trivial publish contract mwanachama-backend-git and
+// mwanachama-backend-taskmanager use to emit domain events, replacing
 // CodeValdSharedLib/eventbus.Publisher (which layers a CodeValdCross
 // registrar/heartbeat this project has no equivalent of).
 package events

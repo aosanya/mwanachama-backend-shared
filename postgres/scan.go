@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 
-	"github.com/aosanya/mwanachama-go-shared/entitygraph"
+	"github.com/aosanya/mwanachama-backend-shared/entitygraph"
 )
 
 // scanner is satisfied by both *sql.Row and *sql.Rows, so row-scanning code

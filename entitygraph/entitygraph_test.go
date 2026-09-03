@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aosanya/mwanachama-go-shared/entitygraph"
-	"github.com/aosanya/mwanachama-go-shared/schema"
+	"github.com/aosanya/mwanachama-backend-shared/entitygraph"
+	"github.com/aosanya/mwanachama-backend-shared/schema"
 )
 
 // testSchema builds a minimal Schema with Agency, Goal, and Workflow types

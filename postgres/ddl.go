@@ -3,8 +3,8 @@ package postgres
 import "fmt"
 
 // DDL returns the CREATE TABLE / CREATE INDEX statements for one domain's
-// entity-graph tables, named per t. Each consumer (mwanachama-git,
-// mwanachama-taskmanager, …) embeds this into its own golang-migrate
+// entity-graph tables, named per t. Each consumer (mwanachama-backend-git,
+// mwanachama-backend-taskmanager, …) embeds this into its own golang-migrate
 // up-migration — e.g.
 //
 //	postgres.DDL(postgres.DefaultTableNames("git_"))

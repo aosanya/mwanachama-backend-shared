@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/aosanya/mwanachama-go-shared/entitygraph"
+	"github.com/aosanya/mwanachama-backend-shared/entitygraph"
 )
 
 // Postgres SQLSTATE codes this package maps to entitygraph sentinel errors.

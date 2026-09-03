@@ -1,4 +1,4 @@
-module github.com/aosanya/mwanachama-go-shared
+module github.com/aosanya/mwanachama-backend-shared
 
 go 1.24.0
 

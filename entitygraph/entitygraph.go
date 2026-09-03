@@ -4,8 +4,8 @@
 //
 // Ported from github.com/aosanya/CodeValdSharedLib/entitygraph (ArangoDB-
 // backed, built for CodeValdCortex agencies) for
-// github.com/aosanya/mwanachama-git and
-// github.com/aosanya/mwanachama-taskmanager, which port CodeValdGit's and
+// github.com/aosanya/mwanachama-backend-git and
+// github.com/aosanya/mwanachama-backend-taskmanager, which port CodeValdGit's and
 // CodeValdWork's business logic onto this contract. The interfaces below are
 // unchanged from the original; only the backing storage differs.
 package entitygraph
@@ -57,7 +57,7 @@ var ErrImmutableType = errors.New("entity type is immutable")
 var ErrUniqueKeyNotDefined = errors.New("unique key not defined for type")
 
 // DataManager is the business-logic entry point for entity lifecycle and
-// graph operations. mwanachama-git and mwanachama-taskmanager alias this as
+// graph operations. mwanachama-backend-git and mwanachama-backend-taskmanager alias this as
 // their own service-scoped interface and are ported against it unchanged.
 //
 // Schema operations are not in scope — see SchemaManager.

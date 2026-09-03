@@ -9,8 +9,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aosanya/mwanachama-go-shared/entitygraph"
-	"github.com/aosanya/mwanachama-go-shared/schema"
+	"github.com/aosanya/mwanachama-backend-shared/entitygraph"
+	"github.com/aosanya/mwanachama-backend-shared/schema"
 )
 
 // Run exercises dm/sm end to end: schema draft → publish → activate, entity

@@ -1,4 +1,4 @@
-# mwanachama-go-shared — documentation
+# mwanachama-backend-shared — documentation
 
 ## Layout
 
@@ -24,12 +24,12 @@ The Postgres-backed replacement for `CodeValdSharedLib/entitygraph` — a
 generic, schema-driven entity/relationship graph store (entities with typed
 `jsonb` properties, labeled directed edges, recursive-CTE traversal) plus a
 minimal local event-`Publisher` contract. Consumed by
-[mwanachama-git](../mwanachama-git) and
-[mwanachama-taskmanager](../mwanachama-taskmanager) so both can port their
+[mwanachama-backend-git](../mwanachama-backend-git) and
+[mwanachama-backend-taskmanager](../mwanachama-backend-taskmanager) so both can port their
 CodeValdGit/CodeValdWork business logic against the same storage contract
 without duplicating the entity-graph engine in each.
 
 Standalone by design — no dependency on `CodeValdSharedLib` (unpublished,
 private) and no gRPC/proto/sub-service shape. Plain Go packages, imported
-directly by `mwanachama-git`, `mwanachama-taskmanager`, and ultimately
-[mwanachama-api-gateway](../mwanachama-api-gateway).
+directly by `mwanachama-backend-git`, `mwanachama-backend-taskmanager`, and ultimately
+[mwanachama-backend-api-gateway](../mwanachama-backend-api-gateway).

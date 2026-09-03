@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/aosanya/mwanachama-go-shared/entitygraph"
+	"github.com/aosanya/mwanachama-backend-shared/entitygraph"
 )
 
 const entityCols = `id, agency_id, type_id, properties, created_at, updated_at, deleted, deleted_at`

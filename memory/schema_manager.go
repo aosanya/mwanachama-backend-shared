@@ -3,8 +3,8 @@ package memory
 import (
 	"context"
 
-	"github.com/aosanya/mwanachama-go-shared/entitygraph"
-	"github.com/aosanya/mwanachama-go-shared/schema"
+	"github.com/aosanya/mwanachama-backend-shared/entitygraph"
+	"github.com/aosanya/mwanachama-backend-shared/schema"
 )
 
 // SetSchema implements entitygraph.SchemaManager.

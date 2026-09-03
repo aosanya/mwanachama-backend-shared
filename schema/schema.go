@@ -7,7 +7,7 @@
 // Ported from github.com/aosanya/CodeValdSharedLib's "types" package, scoped
 // down to just the schema-definition types entitygraph needs (the
 // route-generation / service-registration types that package also carried
-// are dropped here — mwanachama-api-gateway registers its own HTTP routes by
+// are dropped here — mwanachama-backend-api-gateway registers its own HTTP routes by
 // hand, it does not derive them from a schema).
 package schema
 
@@ -197,7 +197,7 @@ type TypeDefinition struct {
 	// backing collection for instances of this type. The Postgres
 	// DataManager in this repo stores every entity in one `entities` table
 	// keyed by TypeID — it does not read this field to route storage.
-	// Ported callers (mwanachama-git, mwanachama-taskmanager) may still set
+	// Ported callers (mwanachama-backend-git, mwanachama-backend-taskmanager) may still set
 	// it, purely as a label carried over from CodeValdGit/CodeValdWork's
 	// schema.go, with no functional effect here.
 	StorageCollection string

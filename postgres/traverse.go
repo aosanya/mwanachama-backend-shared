@@ -6,7 +6,7 @@ import (
 
 	"github.com/lib/pq"
 
-	"github.com/aosanya/mwanachama-go-shared/entitygraph"
+	"github.com/aosanya/mwanachama-backend-shared/entitygraph"
 )
 
 // TraverseGraph implements entitygraph.DataManager via a recursive CTE walk
@@ -17,7 +17,7 @@ import (
 // a cyclic graph re-expands every cycle it finds at every depth up to
 // req.Depth. Bounded by Depth as documented, but a caller passing a large
 // Depth against a densely cyclic graph can make this slow. None of
-// mwanachama-git's or mwanachama-taskmanager's schemas declare cyclic
+// mwanachama-backend-git's or mwanachama-backend-taskmanager's schemas declare cyclic
 // relationship sets today (commit ancestry and task dependencies are both
 // DAGs), so this has not needed a "visited" guard yet.
 func (b *Backend) TraverseGraph(ctx context.Context, req entitygraph.TraverseGraphRequest) (entitygraph.TraverseGraphResult, error) {

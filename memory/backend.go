@@ -1,7 +1,7 @@
 // Package memory is an in-process implementation of
-// github.com/aosanya/mwanachama-go-shared/entitygraph's DataManager and
+// github.com/aosanya/mwanachama-backend-shared/entitygraph's DataManager and
 // SchemaManager, sibling to postgres/. Same role as
-// mwanachama-api-gateway's internal/store/memory: lets tests and local dev
+// mwanachama-backend-api-gateway's internal/store/memory: lets tests and local dev
 // run against the real interface without a database, while postgres/ is
 // what actually ships.
 package memory
@@ -9,8 +9,8 @@ package memory
 import (
 	"sync"
 
-	"github.com/aosanya/mwanachama-go-shared/entitygraph"
-	"github.com/aosanya/mwanachama-go-shared/schema"
+	"github.com/aosanya/mwanachama-backend-shared/entitygraph"
+	"github.com/aosanya/mwanachama-backend-shared/schema"
 )
 
 // Backend holds every entity, relationship, and schema document in plain
