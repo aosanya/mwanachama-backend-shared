@@ -16,7 +16,6 @@ func DDL(t TableNames) string {
 	return fmt.Sprintf(`
 CREATE TABLE IF NOT EXISTS %[1]s (
     id          TEXT PRIMARY KEY,
-    agency_id   TEXT NOT NULL,
     type_id     TEXT NOT NULL,
     properties  JSONB NOT NULL DEFAULT '{}'::jsonb,
     -- unique_key is set only by UpsertEntity, from TypeDefinition.UniqueKey —
@@ -29,21 +28,20 @@ CREATE TABLE IF NOT EXISTS %[1]s (
     deleted_at  TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS %[1]s_agency_type_idx
-    ON %[1]s (agency_id, type_id) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS %[1]s_type_idx
+    ON %[1]s (type_id) WHERE NOT deleted;
 
 CREATE INDEX IF NOT EXISTS %[1]s_properties_gin_idx
     ON %[1]s USING GIN (properties);
 
 -- Backs UpsertEntity's ON CONFLICT target: at most one non-deleted entity
--- per (agency_id, type_id, unique_key).
-CREATE UNIQUE INDEX IF NOT EXISTS %[1]s_agency_unique_key_idx
-    ON %[1]s (agency_id, type_id, unique_key)
+-- per (type_id, unique_key).
+CREATE UNIQUE INDEX IF NOT EXISTS %[1]s_unique_key_idx
+    ON %[1]s (type_id, unique_key)
     WHERE unique_key IS NOT NULL AND NOT deleted;
 
 CREATE TABLE IF NOT EXISTS %[2]s (
     id          TEXT PRIMARY KEY,
-    agency_id   TEXT NOT NULL,
     name        TEXT NOT NULL,
     from_id     TEXT NOT NULL REFERENCES %[1]s (id),
     to_id       TEXT NOT NULL REFERENCES %[1]s (id),
@@ -51,34 +49,35 @@ CREATE TABLE IF NOT EXISTS %[2]s (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS %[2]s_agency_from_idx
-    ON %[2]s (agency_id, from_id, name);
+CREATE INDEX IF NOT EXISTS %[2]s_from_idx
+    ON %[2]s (from_id, name);
 
-CREATE INDEX IF NOT EXISTS %[2]s_agency_to_idx
-    ON %[2]s (agency_id, to_id, name);
+CREATE INDEX IF NOT EXISTS %[2]s_to_idx
+    ON %[2]s (to_id, name);
 
--- One mutable draft document per agency.
+-- A single mutable draft document — one deployment, one schema. singleton
+-- is always true; the CHECK plus the PK is the standard Postgres idiom for
+-- guaranteeing at most one row in a table.
 CREATE TABLE IF NOT EXISTS %[3]s (
-    agency_id   TEXT PRIMARY KEY,
+    singleton   BOOLEAN PRIMARY KEY DEFAULT true CHECK (singleton),
     document    JSONB NOT NULL,
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Immutable, append-only published snapshots.
 CREATE TABLE IF NOT EXISTS %[4]s (
-    agency_id   TEXT NOT NULL,
-    version     INTEGER NOT NULL,
+    version     INTEGER PRIMARY KEY,
     document    JSONB NOT NULL,
     active      BOOLEAN NOT NULL DEFAULT false,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (agency_id, version)
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Enforces "exactly one active version per agency" at the DB level —
+-- Enforces "exactly one active version, full stop" at the DB level —
 -- Activate flips the old and new rows inside one transaction; this index is
--- the backstop if it ever doesn't.
+-- the backstop if it ever doesn't. A unique index on a constant expression
+-- is the standard Postgres idiom for "at most one row with this flag set."
 CREATE UNIQUE INDEX IF NOT EXISTS %[4]s_one_active_idx
-    ON %[4]s (agency_id) WHERE active;
+    ON %[4]s ((true)) WHERE active;
 `, t.Entities, t.Relationships, t.SchemaDrafts, t.SchemaVersions)
 }
 

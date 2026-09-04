@@ -20,7 +20,6 @@ func (b *Backend) CreateEntity(ctx context.Context, req entitygraph.CreateEntity
 	now := nowUTC()
 	e := entitygraph.Entity{
 		ID:         uuid.NewString(),
-		AgencyID:   req.AgencyID,
 		TypeID:     req.TypeID,
 		Properties: cloneProps(req.Properties),
 		CreatedAt:  now,
@@ -31,7 +30,6 @@ func (b *Backend) CreateEntity(ctx context.Context, req entitygraph.CreateEntity
 	for _, rel := range req.Relationships {
 		r := entitygraph.Relationship{
 			ID:        uuid.NewString(),
-			AgencyID:  req.AgencyID,
 			Name:      rel.Name,
 			FromID:    e.ID,
 			ToID:      rel.ToID,
@@ -44,24 +42,24 @@ func (b *Backend) CreateEntity(ctx context.Context, req entitygraph.CreateEntity
 }
 
 // GetEntity implements entitygraph.DataManager.
-func (b *Backend) GetEntity(ctx context.Context, agencyID, entityID string) (entitygraph.Entity, error) {
+func (b *Backend) GetEntity(ctx context.Context, entityID string) (entitygraph.Entity, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	e, ok := b.entities[entityID]
-	if !ok || e.AgencyID != agencyID || e.Deleted {
+	if !ok || e.Deleted {
 		return entitygraph.Entity{}, entitygraph.ErrEntityNotFound
 	}
 	return e, nil
 }
 
 // UpdateEntity implements entitygraph.DataManager.
-func (b *Backend) UpdateEntity(ctx context.Context, agencyID, entityID string, req entitygraph.UpdateEntityRequest) (entitygraph.Entity, error) {
+func (b *Backend) UpdateEntity(ctx context.Context, entityID string, req entitygraph.UpdateEntityRequest) (entitygraph.Entity, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	e, ok := b.entities[entityID]
-	if !ok || e.AgencyID != agencyID || e.Deleted {
+	if !ok || e.Deleted {
 		return entitygraph.Entity{}, entitygraph.ErrEntityNotFound
 	}
 	if e.Properties == nil {
@@ -76,12 +74,12 @@ func (b *Backend) UpdateEntity(ctx context.Context, agencyID, entityID string, r
 }
 
 // DeleteEntity implements entitygraph.DataManager (soft delete).
-func (b *Backend) DeleteEntity(ctx context.Context, agencyID, entityID string) error {
+func (b *Backend) DeleteEntity(ctx context.Context, entityID string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	e, ok := b.entities[entityID]
-	if !ok || e.AgencyID != agencyID || e.Deleted {
+	if !ok || e.Deleted {
 		return entitygraph.ErrEntityNotFound
 	}
 	now := nowUTC()
@@ -102,9 +100,6 @@ func (b *Backend) ListEntities(ctx context.Context, filter entitygraph.EntityFil
 		if e.Deleted {
 			continue
 		}
-		if filter.AgencyID != "" && e.AgencyID != filter.AgencyID {
-			continue
-		}
 		if filter.TypeID != "" && e.TypeID != filter.TypeID {
 			continue
 		}
@@ -122,11 +117,11 @@ func (b *Backend) ListEntities(ctx context.Context, filter entitygraph.EntityFil
 	return out, nil
 }
 
-// UpsertEntity implements entitygraph.DataManager: looks up the agency's
-// active schema for req.TypeID's UniqueKey, then scans for a non-deleted
-// entity of the same type whose properties match on every key field.
+// UpsertEntity implements entitygraph.DataManager: looks up the active
+// schema for req.TypeID's UniqueKey, then scans for a non-deleted entity of
+// the same type whose properties match on every key field.
 func (b *Backend) UpsertEntity(ctx context.Context, req entitygraph.CreateEntityRequest) (entitygraph.Entity, error) {
-	active, err := b.GetActive(ctx, req.AgencyID)
+	active, err := b.GetActive(ctx)
 	if err != nil {
 		return entitygraph.Entity{}, err
 	}
@@ -142,7 +137,7 @@ func (b *Backend) UpsertEntity(ctx context.Context, req entitygraph.CreateEntity
 	defer b.mu.Unlock()
 
 	for id, e := range b.entities {
-		if e.Deleted || e.AgencyID != req.AgencyID || e.TypeID != req.TypeID {
+		if e.Deleted || e.TypeID != req.TypeID {
 			continue
 		}
 		if uniqueKeyMatches(e.Properties, req.Properties, td.UniqueKey) {
@@ -161,7 +156,6 @@ func (b *Backend) UpsertEntity(ctx context.Context, req entitygraph.CreateEntity
 	now := nowUTC()
 	e := entitygraph.Entity{
 		ID:         uuid.NewString(),
-		AgencyID:   req.AgencyID,
 		TypeID:     req.TypeID,
 		Properties: cloneProps(req.Properties),
 		CreatedAt:  now,

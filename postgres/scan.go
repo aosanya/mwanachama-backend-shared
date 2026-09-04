@@ -14,15 +14,15 @@ type scanner interface {
 }
 
 // scanEntity reads one row in the column order CreateEntity/GetEntity/
-// ListEntities/UpsertEntity all select in: id, agency_id, type_id,
-// properties, created_at, updated_at, deleted, deleted_at.
+// ListEntities/UpsertEntity all select in: id, type_id, properties,
+// created_at, updated_at, deleted, deleted_at.
 func scanEntity(s scanner) (entitygraph.Entity, error) {
 	var (
 		e         entitygraph.Entity
 		propsRaw  []byte
 		deletedAt sql.NullTime
 	)
-	if err := s.Scan(&e.ID, &e.AgencyID, &e.TypeID, &propsRaw, &e.CreatedAt, &e.UpdatedAt, &e.Deleted, &deletedAt); err != nil {
+	if err := s.Scan(&e.ID, &e.TypeID, &propsRaw, &e.CreatedAt, &e.UpdatedAt, &e.Deleted, &deletedAt); err != nil {
 		return entitygraph.Entity{}, err
 	}
 	if len(propsRaw) > 0 {
@@ -38,14 +38,14 @@ func scanEntity(s scanner) (entitygraph.Entity, error) {
 }
 
 // scanRelationship reads one row in the column order CreateRelationship/
-// GetRelationship/ListRelationships all select in: id, agency_id, name,
-// from_id, to_id, properties, created_at.
+// GetRelationship/ListRelationships all select in: id, name, from_id,
+// to_id, properties, created_at.
 func scanRelationship(s scanner) (entitygraph.Relationship, error) {
 	var (
 		r        entitygraph.Relationship
 		propsRaw []byte
 	)
-	if err := s.Scan(&r.ID, &r.AgencyID, &r.Name, &r.FromID, &r.ToID, &propsRaw, &r.CreatedAt); err != nil {
+	if err := s.Scan(&r.ID, &r.Name, &r.FromID, &r.ToID, &propsRaw, &r.CreatedAt); err != nil {
 		return entitygraph.Relationship{}, err
 	}
 	if len(propsRaw) > 0 {

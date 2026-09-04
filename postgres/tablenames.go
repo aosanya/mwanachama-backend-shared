@@ -15,7 +15,8 @@ type TableNames struct {
 	// domain.
 	Relationships string
 
-	// SchemaDrafts is the one-row-per-agency mutable draft schema table.
+	// SchemaDrafts is the singleton mutable draft schema table (at most one
+	// row — see DDL's schema_drafts CHECK(singleton) idiom).
 	SchemaDrafts string
 
 	// SchemaVersions is the append-only published schema snapshot table.
@@ -31,6 +32,25 @@ type TableNames struct {
 func DefaultTableNames(prefix string) TableNames {
 	return TableNames{
 		Entities:       prefix + "entities",
+		Relationships:  prefix + "relationships",
+		SchemaDrafts:   prefix + "schemas_draft",
+		SchemaVersions: prefix + "schemas_published",
+	}
+}
+
+// DefaultPerCollectionTableNames builds the table set for
+// [NewPerCollectionBackend], e.g. DefaultPerCollectionTableNames("member_")
+// yields member_ids, member_relationships, member_schemas_draft,
+// member_schemas_published. Entities here does NOT name a content table —
+// PerCollectionBackend's entity content lives in one table per
+// TypeDefinition.StorageCollection instead (e.g. member_members,
+// member_groups) — it names the small shared id-registry table
+// (id -> type_id) that makes that split work: a real foreign key target
+// for Relationships.from_id/to_id, and a single indexed lookup instead of
+// probing every per-type table to resolve an id with no type given.
+func DefaultPerCollectionTableNames(prefix string) TableNames {
+	return TableNames{
+		Entities:       prefix + "ids",
 		Relationships:  prefix + "relationships",
 		SchemaDrafts:   prefix + "schemas_draft",
 		SchemaVersions: prefix + "schemas_published",

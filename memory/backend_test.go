@@ -9,5 +9,5 @@ import (
 
 func TestBackend_Conformance(t *testing.T) {
 	b := memory.NewBackend()
-	entitygraphtest.Run(t, b, b, "agency-1")
+	entitygraphtest.Run(t, b, b)
 }

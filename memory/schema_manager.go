@@ -11,24 +11,23 @@ import (
 func (b *Backend) SetSchema(ctx context.Context, s schema.Schema) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.schemaDrafts[s.AgencyID] = s
+	b.schemaDraft = &s
 	return nil
 }
 
 // GetSchema implements entitygraph.SchemaManager.
-func (b *Backend) GetSchema(ctx context.Context, agencyID string) (schema.Schema, error) {
+func (b *Backend) GetSchema(ctx context.Context) (schema.Schema, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	s, ok := b.schemaDrafts[agencyID]
-	if !ok {
+	if b.schemaDraft == nil {
 		return schema.Schema{}, entitygraph.ErrSchemaNotFound
 	}
-	return s, nil
+	return *b.schemaDraft, nil
 }
 
 // Publish implements entitygraph.SchemaManager.
-func (b *Backend) Publish(ctx context.Context, agencyID string) error {
-	draft, err := b.GetSchema(ctx, agencyID)
+func (b *Backend) Publish(ctx context.Context) error {
+	draft, err := b.GetSchema(ctx)
 	if err != nil {
 		return err
 	}
@@ -39,20 +38,19 @@ func (b *Backend) Publish(ctx context.Context, agencyID string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	draft.Version = len(b.schemaVersions[agencyID]) + 1
+	draft.Version = len(b.schemaVersions) + 1
 	draft.Active = false
-	b.schemaVersions[agencyID] = append(b.schemaVersions[agencyID], draft)
+	b.schemaVersions = append(b.schemaVersions, draft)
 	return nil
 }
 
 // Activate implements entitygraph.SchemaManager.
-func (b *Backend) Activate(ctx context.Context, agencyID string, version int) error {
+func (b *Backend) Activate(ctx context.Context, version int) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	versions := b.schemaVersions[agencyID]
 	idx := -1
-	for i, s := range versions {
+	for i, s := range b.schemaVersions {
 		if s.Version == version {
 			idx = i
 		}
@@ -60,17 +58,17 @@ func (b *Backend) Activate(ctx context.Context, agencyID string, version int) er
 	if idx == -1 {
 		return entitygraph.ErrSchemaNotFound
 	}
-	for i := range versions {
-		versions[i].Active = i == idx
+	for i := range b.schemaVersions {
+		b.schemaVersions[i].Active = i == idx
 	}
 	return nil
 }
 
 // GetActive implements entitygraph.SchemaManager.
-func (b *Backend) GetActive(ctx context.Context, agencyID string) (schema.Schema, error) {
+func (b *Backend) GetActive(ctx context.Context) (schema.Schema, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	for _, s := range b.schemaVersions[agencyID] {
+	for _, s := range b.schemaVersions {
 		if s.Active {
 			return s, nil
 		}
@@ -79,10 +77,10 @@ func (b *Backend) GetActive(ctx context.Context, agencyID string) (schema.Schema
 }
 
 // GetVersion implements entitygraph.SchemaManager.
-func (b *Backend) GetVersion(ctx context.Context, agencyID string, version int) (schema.Schema, error) {
+func (b *Backend) GetVersion(ctx context.Context, version int) (schema.Schema, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	for _, s := range b.schemaVersions[agencyID] {
+	for _, s := range b.schemaVersions {
 		if s.Version == version {
 			return s, nil
 		}
@@ -92,10 +90,10 @@ func (b *Backend) GetVersion(ctx context.Context, agencyID string, version int) 
 
 // ListVersions implements entitygraph.SchemaManager, ascending version
 // order (the order versions were appended in).
-func (b *Backend) ListVersions(ctx context.Context, agencyID string) ([]schema.Schema, error) {
+func (b *Backend) ListVersions(ctx context.Context) ([]schema.Schema, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	out := make([]schema.Schema, len(b.schemaVersions[agencyID]))
-	copy(out, b.schemaVersions[agencyID])
+	out := make([]schema.Schema, len(b.schemaVersions))
+	copy(out, b.schemaVersions)
 	return out, nil
 }

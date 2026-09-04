@@ -13,23 +13,31 @@ import (
 	"github.com/aosanya/mwanachama-backend-shared/schema"
 )
 
+// relationshipDataManager is entitygraph.DataManager plus the relationship
+// methods that no longer live on that interface (see its doc) — Backend,
+// PerCollectionBackend, and the memory backend all still implement these as
+// plain exported methods, so this suite can keep exercising them without the
+// shared interface needing to declare them.
+type relationshipDataManager interface {
+	entitygraph.DataManager
+	CreateRelationship(ctx context.Context, req entitygraph.CreateRelationshipRequest) (entitygraph.Relationship, error)
+	DeleteRelationship(ctx context.Context, relationshipID string) error
+	ListRelationships(ctx context.Context, filter entitygraph.RelationshipFilter) ([]entitygraph.Relationship, error)
+}
+
 // Run exercises dm/sm end to end: schema draft → publish → activate, entity
-// CRUD, upsert-by-unique-key, relationships, and graph traversal. agencyID
-// scopes every call so the same suite can run more than once against a
-// shared backend (e.g. once per subtest) without cross-contamination.
-func Run(t *testing.T, dm entitygraph.DataManager, sm entitygraph.SchemaManager, agencyID string) {
+// CRUD, upsert-by-unique-key, and relationships.
+func Run(t *testing.T, dm relationshipDataManager, sm entitygraph.SchemaManager) {
 	t.Helper()
 
-	t.Run("schema lifecycle", func(t *testing.T) { testSchemaLifecycle(t, sm, agencyID) })
-	t.Run("entity CRUD", func(t *testing.T) { testEntityCRUD(t, dm, agencyID) })
-	t.Run("upsert by unique key", func(t *testing.T) { testUpsert(t, dm, sm, agencyID) })
-	t.Run("relationships", func(t *testing.T) { testRelationships(t, dm, agencyID) })
-	t.Run("traverse graph", func(t *testing.T) { testTraverse(t, dm, agencyID) })
+	t.Run("schema lifecycle", func(t *testing.T) { testSchemaLifecycle(t, sm) })
+	t.Run("entity CRUD", func(t *testing.T) { testEntityCRUD(t, dm) })
+	t.Run("upsert by unique key", func(t *testing.T) { testUpsert(t, dm, sm) })
+	t.Run("relationships", func(t *testing.T) { testRelationships(t, dm) })
 }
 
 func testSchema() schema.Schema {
 	return schema.Schema{
-		AgencyID: "placeholder", // callers overwrite AgencyID before SetSchema
 		Types: []schema.TypeDefinition{
 			{
 				Name:       "Widget",
@@ -43,19 +51,18 @@ func testSchema() schema.Schema {
 	}
 }
 
-func testSchemaLifecycle(t *testing.T, sm entitygraph.SchemaManager, agencyID string) {
+func testSchemaLifecycle(t *testing.T, sm entitygraph.SchemaManager) {
 	ctx := context.Background()
 
-	if _, err := sm.GetSchema(ctx, agencyID); !errors.Is(err, entitygraph.ErrSchemaNotFound) {
+	if _, err := sm.GetSchema(ctx); !errors.Is(err, entitygraph.ErrSchemaNotFound) {
 		t.Fatalf("GetSchema before SetSchema: got %v, want ErrSchemaNotFound", err)
 	}
 
 	draft := testSchema()
-	draft.AgencyID = agencyID
 	if err := sm.SetSchema(ctx, draft); err != nil {
 		t.Fatalf("SetSchema: %v", err)
 	}
-	got, err := sm.GetSchema(ctx, agencyID)
+	got, err := sm.GetSchema(ctx)
 	if err != nil {
 		t.Fatalf("GetSchema: %v", err)
 	}
@@ -63,14 +70,14 @@ func testSchemaLifecycle(t *testing.T, sm entitygraph.SchemaManager, agencyID st
 		t.Fatalf("GetSchema: got %+v", got)
 	}
 
-	if _, err := sm.GetActive(ctx, agencyID); !errors.Is(err, entitygraph.ErrSchemaNotFound) {
+	if _, err := sm.GetActive(ctx); !errors.Is(err, entitygraph.ErrSchemaNotFound) {
 		t.Fatalf("GetActive before Publish: got %v, want ErrSchemaNotFound", err)
 	}
 
-	if err := sm.Publish(ctx, agencyID); err != nil {
+	if err := sm.Publish(ctx); err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
-	versions, err := sm.ListVersions(ctx, agencyID)
+	versions, err := sm.ListVersions(ctx)
 	if err != nil {
 		t.Fatalf("ListVersions: %v", err)
 	}
@@ -78,10 +85,10 @@ func testSchemaLifecycle(t *testing.T, sm entitygraph.SchemaManager, agencyID st
 		t.Fatalf("ListVersions after first publish: got %+v", versions)
 	}
 
-	if err := sm.Activate(ctx, agencyID, 1); err != nil {
+	if err := sm.Activate(ctx, 1); err != nil {
 		t.Fatalf("Activate: %v", err)
 	}
-	active, err := sm.GetActive(ctx, agencyID)
+	active, err := sm.GetActive(ctx)
 	if err != nil {
 		t.Fatalf("GetActive: %v", err)
 	}
@@ -89,7 +96,7 @@ func testSchemaLifecycle(t *testing.T, sm entitygraph.SchemaManager, agencyID st
 		t.Fatalf("GetActive: got %+v", active)
 	}
 
-	if err := sm.Activate(ctx, agencyID, 99); !errors.Is(err, entitygraph.ErrSchemaNotFound) {
+	if err := sm.Activate(ctx, 99); !errors.Is(err, entitygraph.ErrSchemaNotFound) {
 		t.Fatalf("Activate unknown version: got %v, want ErrSchemaNotFound", err)
 	}
 
@@ -98,13 +105,13 @@ func testSchemaLifecycle(t *testing.T, sm entitygraph.SchemaManager, agencyID st
 	if err := sm.SetSchema(ctx, draft); err != nil {
 		t.Fatalf("SetSchema #2: %v", err)
 	}
-	if err := sm.Publish(ctx, agencyID); err != nil {
+	if err := sm.Publish(ctx); err != nil {
 		t.Fatalf("Publish #2: %v", err)
 	}
-	if err := sm.Activate(ctx, agencyID, 2); err != nil {
+	if err := sm.Activate(ctx, 2); err != nil {
 		t.Fatalf("Activate #2: %v", err)
 	}
-	versions, err = sm.ListVersions(ctx, agencyID)
+	versions, err = sm.ListVersions(ctx)
 	if err != nil {
 		t.Fatalf("ListVersions #2: %v", err)
 	}
@@ -119,11 +126,11 @@ func testSchemaLifecycle(t *testing.T, sm entitygraph.SchemaManager, agencyID st
 	}
 }
 
-func testEntityCRUD(t *testing.T, dm entitygraph.DataManager, agencyID string) {
+func testEntityCRUD(t *testing.T, dm entitygraph.DataManager) {
 	ctx := context.Background()
 
 	e, err := dm.CreateEntity(ctx, entitygraph.CreateEntityRequest{
-		AgencyID: agencyID, TypeID: "Widget", Properties: map[string]any{"sku": "abc"},
+		TypeID: "Widget", Properties: map[string]any{"sku": "abc"},
 	})
 	if err != nil {
 		t.Fatalf("CreateEntity: %v", err)
@@ -132,7 +139,7 @@ func testEntityCRUD(t *testing.T, dm entitygraph.DataManager, agencyID string) {
 		t.Fatalf("CreateEntity: got %+v", e)
 	}
 
-	got, err := dm.GetEntity(ctx, agencyID, e.ID)
+	got, err := dm.GetEntity(ctx, e.ID)
 	if err != nil {
 		t.Fatalf("GetEntity: %v", err)
 	}
@@ -140,7 +147,7 @@ func testEntityCRUD(t *testing.T, dm entitygraph.DataManager, agencyID string) {
 		t.Fatalf("GetEntity: got properties %+v", got.Properties)
 	}
 
-	updated, err := dm.UpdateEntity(ctx, agencyID, e.ID, entitygraph.UpdateEntityRequest{
+	updated, err := dm.UpdateEntity(ctx, e.ID, entitygraph.UpdateEntityRequest{
 		Properties: map[string]any{"color": "red"},
 	})
 	if err != nil {
@@ -153,7 +160,7 @@ func testEntityCRUD(t *testing.T, dm entitygraph.DataManager, agencyID string) {
 		t.Fatalf("UpdateEntity: got %+v", updated.Properties)
 	}
 
-	list, err := dm.ListEntities(ctx, entitygraph.EntityFilter{AgencyID: agencyID, TypeID: "Widget"})
+	list, err := dm.ListEntities(ctx, entitygraph.EntityFilter{TypeID: "Widget"})
 	if err != nil {
 		t.Fatalf("ListEntities: %v", err)
 	}
@@ -167,29 +174,29 @@ func testEntityCRUD(t *testing.T, dm entitygraph.DataManager, agencyID string) {
 		t.Fatalf("ListEntities: %q missing from %+v", e.ID, list)
 	}
 
-	if err := dm.DeleteEntity(ctx, agencyID, e.ID); err != nil {
+	if err := dm.DeleteEntity(ctx, e.ID); err != nil {
 		t.Fatalf("DeleteEntity: %v", err)
 	}
-	if _, err := dm.GetEntity(ctx, agencyID, e.ID); !errors.Is(err, entitygraph.ErrEntityNotFound) {
+	if _, err := dm.GetEntity(ctx, e.ID); !errors.Is(err, entitygraph.ErrEntityNotFound) {
 		t.Fatalf("GetEntity after delete: got %v, want ErrEntityNotFound", err)
 	}
-	if err := dm.DeleteEntity(ctx, agencyID, e.ID); !errors.Is(err, entitygraph.ErrEntityNotFound) {
+	if err := dm.DeleteEntity(ctx, e.ID); !errors.Is(err, entitygraph.ErrEntityNotFound) {
 		t.Fatalf("DeleteEntity twice: got %v, want ErrEntityNotFound", err)
 	}
 }
 
-func testUpsert(t *testing.T, dm entitygraph.DataManager, sm entitygraph.SchemaManager, agencyID string) {
+func testUpsert(t *testing.T, dm entitygraph.DataManager, sm entitygraph.SchemaManager) {
 	ctx := context.Background()
 
 	first, err := dm.UpsertEntity(ctx, entitygraph.CreateEntityRequest{
-		AgencyID: agencyID, TypeID: "Widget", Properties: map[string]any{"sku": "upsert-1", "count": float64(1)},
+		TypeID: "Widget", Properties: map[string]any{"sku": "upsert-1", "count": float64(1)},
 	})
 	if err != nil {
 		t.Fatalf("UpsertEntity (insert): %v", err)
 	}
 
 	second, err := dm.UpsertEntity(ctx, entitygraph.CreateEntityRequest{
-		AgencyID: agencyID, TypeID: "Widget", Properties: map[string]any{"sku": "upsert-1", "count": float64(2)},
+		TypeID: "Widget", Properties: map[string]any{"sku": "upsert-1", "count": float64(2)},
 	})
 	if err != nil {
 		t.Fatalf("UpsertEntity (merge): %v", err)
@@ -202,7 +209,7 @@ func testUpsert(t *testing.T, dm entitygraph.DataManager, sm entitygraph.SchemaM
 	}
 
 	// A type with no UniqueKey declared must reject Upsert.
-	draft, err := sm.GetSchema(ctx, agencyID)
+	draft, err := sm.GetSchema(ctx)
 	if err != nil {
 		t.Fatalf("GetSchema: %v", err)
 	}
@@ -210,55 +217,50 @@ func testUpsert(t *testing.T, dm entitygraph.DataManager, sm entitygraph.SchemaM
 	if err := sm.SetSchema(ctx, draft); err != nil {
 		t.Fatalf("SetSchema (adding Unkeyed): %v", err)
 	}
-	if err := sm.Publish(ctx, agencyID); err != nil {
+	if err := sm.Publish(ctx); err != nil {
 		t.Fatalf("Publish (adding Unkeyed): %v", err)
 	}
-	versions, err := sm.ListVersions(ctx, agencyID)
+	versions, err := sm.ListVersions(ctx)
 	if err != nil {
 		t.Fatalf("ListVersions: %v", err)
 	}
-	if err := sm.Activate(ctx, agencyID, versions[len(versions)-1].Version); err != nil {
+	if err := sm.Activate(ctx, versions[len(versions)-1].Version); err != nil {
 		t.Fatalf("Activate (adding Unkeyed): %v", err)
 	}
-	if _, err := dm.UpsertEntity(ctx, entitygraph.CreateEntityRequest{AgencyID: agencyID, TypeID: "Unkeyed"}); !errors.Is(err, entitygraph.ErrUniqueKeyNotDefined) {
+	if _, err := dm.UpsertEntity(ctx, entitygraph.CreateEntityRequest{TypeID: "Unkeyed"}); !errors.Is(err, entitygraph.ErrUniqueKeyNotDefined) {
 		t.Fatalf("UpsertEntity on unkeyed type: got %v, want ErrUniqueKeyNotDefined", err)
 	}
 }
 
-func testRelationships(t *testing.T, dm entitygraph.DataManager, agencyID string) {
+func testRelationships(t *testing.T, dm relationshipDataManager) {
 	ctx := context.Background()
 
-	parent, err := dm.CreateEntity(ctx, entitygraph.CreateEntityRequest{AgencyID: agencyID, TypeID: "Widget", Properties: map[string]any{"sku": "rel-parent"}})
+	parent, err := dm.CreateEntity(ctx, entitygraph.CreateEntityRequest{TypeID: "Widget", Properties: map[string]any{"sku": "rel-parent"}})
 	if err != nil {
 		t.Fatalf("CreateEntity(parent): %v", err)
 	}
-	child, err := dm.CreateEntity(ctx, entitygraph.CreateEntityRequest{AgencyID: agencyID, TypeID: "Widget", Properties: map[string]any{"sku": "rel-child"}})
+	child, err := dm.CreateEntity(ctx, entitygraph.CreateEntityRequest{TypeID: "Widget", Properties: map[string]any{"sku": "rel-child"}})
 	if err != nil {
 		t.Fatalf("CreateEntity(child): %v", err)
 	}
 
 	if _, err := dm.CreateRelationship(ctx, entitygraph.CreateRelationshipRequest{
-		AgencyID: agencyID, Name: "contains", FromID: parent.ID, ToID: "does-not-exist",
+		Name: "contains", FromID: parent.ID, ToID: "does-not-exist",
 	}); !errors.Is(err, entitygraph.ErrEntityNotFound) {
 		t.Fatalf("CreateRelationship to unknown entity: got %v, want ErrEntityNotFound", err)
 	}
 
 	rel, err := dm.CreateRelationship(ctx, entitygraph.CreateRelationshipRequest{
-		AgencyID: agencyID, Name: "contains", FromID: parent.ID, ToID: child.ID,
+		Name: "contains", FromID: parent.ID, ToID: child.ID,
 	})
 	if err != nil {
 		t.Fatalf("CreateRelationship: %v", err)
 	}
-
-	got, err := dm.GetRelationship(ctx, agencyID, rel.ID)
-	if err != nil {
-		t.Fatalf("GetRelationship: %v", err)
-	}
-	if got.FromID != parent.ID || got.ToID != child.ID {
-		t.Fatalf("GetRelationship: got %+v", got)
+	if rel.ID == "" || rel.FromID != parent.ID || rel.ToID != child.ID {
+		t.Fatalf("CreateRelationship: got %+v", rel)
 	}
 
-	list, err := dm.ListRelationships(ctx, entitygraph.RelationshipFilter{AgencyID: agencyID, FromID: parent.ID})
+	list, err := dm.ListRelationships(ctx, entitygraph.RelationshipFilter{FromID: parent.ID})
 	if err != nil {
 		t.Fatalf("ListRelationships: %v", err)
 	}
@@ -266,72 +268,17 @@ func testRelationships(t *testing.T, dm entitygraph.DataManager, agencyID string
 		t.Fatalf("ListRelationships: got %+v", list)
 	}
 
-	if err := dm.DeleteRelationship(ctx, agencyID, rel.ID); err != nil {
+	if err := dm.DeleteRelationship(ctx, rel.ID); err != nil {
 		t.Fatalf("DeleteRelationship: %v", err)
 	}
-	if _, err := dm.GetRelationship(ctx, agencyID, rel.ID); !errors.Is(err, entitygraph.ErrRelationshipNotFound) {
-		t.Fatalf("GetRelationship after delete: got %v, want ErrRelationshipNotFound", err)
+	if err := dm.DeleteRelationship(ctx, rel.ID); !errors.Is(err, entitygraph.ErrRelationshipNotFound) {
+		t.Fatalf("DeleteRelationship twice: got %v, want ErrRelationshipNotFound", err)
 	}
-}
-
-func testTraverse(t *testing.T, dm entitygraph.DataManager, agencyID string) {
-	ctx := context.Background()
-
-	root, err := dm.CreateEntity(ctx, entitygraph.CreateEntityRequest{AgencyID: agencyID, TypeID: "Widget", Properties: map[string]any{"sku": "traverse-root"}})
+	list, err = dm.ListRelationships(ctx, entitygraph.RelationshipFilter{FromID: parent.ID})
 	if err != nil {
-		t.Fatalf("CreateEntity(root): %v", err)
+		t.Fatalf("ListRelationships after delete: %v", err)
 	}
-	mid, err := dm.CreateEntity(ctx, entitygraph.CreateEntityRequest{AgencyID: agencyID, TypeID: "Widget", Properties: map[string]any{"sku": "traverse-mid"}})
-	if err != nil {
-		t.Fatalf("CreateEntity(mid): %v", err)
+	if len(list) != 0 {
+		t.Fatalf("ListRelationships after delete: got %+v, want empty", list)
 	}
-	leaf, err := dm.CreateEntity(ctx, entitygraph.CreateEntityRequest{AgencyID: agencyID, TypeID: "Widget", Properties: map[string]any{"sku": "traverse-leaf"}})
-	if err != nil {
-		t.Fatalf("CreateEntity(leaf): %v", err)
-	}
-	if _, err := dm.CreateRelationship(ctx, entitygraph.CreateRelationshipRequest{AgencyID: agencyID, Name: "contains", FromID: root.ID, ToID: mid.ID}); err != nil {
-		t.Fatalf("CreateRelationship(root->mid): %v", err)
-	}
-	if _, err := dm.CreateRelationship(ctx, entitygraph.CreateRelationshipRequest{AgencyID: agencyID, Name: "contains", FromID: mid.ID, ToID: leaf.ID}); err != nil {
-		t.Fatalf("CreateRelationship(mid->leaf): %v", err)
-	}
-
-	// Depth 1 outbound from root reaches only mid (plus root itself).
-	shallow, err := dm.TraverseGraph(ctx, entitygraph.TraverseGraphRequest{AgencyID: agencyID, StartID: root.ID, Direction: "outbound", Depth: 1})
-	if err != nil {
-		t.Fatalf("TraverseGraph depth 1: %v", err)
-	}
-	if !hasVertex(shallow.Vertices, mid.ID) || hasVertex(shallow.Vertices, leaf.ID) {
-		t.Fatalf("TraverseGraph depth 1: got vertices %+v", shallow.Vertices)
-	}
-
-	// Depth 2 outbound from root reaches mid and leaf.
-	deep, err := dm.TraverseGraph(ctx, entitygraph.TraverseGraphRequest{AgencyID: agencyID, StartID: root.ID, Direction: "outbound", Depth: 2})
-	if err != nil {
-		t.Fatalf("TraverseGraph depth 2: %v", err)
-	}
-	if !hasVertex(deep.Vertices, mid.ID) || !hasVertex(deep.Vertices, leaf.ID) {
-		t.Fatalf("TraverseGraph depth 2: got vertices %+v", deep.Vertices)
-	}
-	if len(deep.Edges) != 2 {
-		t.Fatalf("TraverseGraph depth 2: got %d edges, want 2", len(deep.Edges))
-	}
-
-	// Inbound from leaf reaches mid, not root at depth 1.
-	inbound, err := dm.TraverseGraph(ctx, entitygraph.TraverseGraphRequest{AgencyID: agencyID, StartID: leaf.ID, Direction: "inbound", Depth: 1})
-	if err != nil {
-		t.Fatalf("TraverseGraph inbound: %v", err)
-	}
-	if !hasVertex(inbound.Vertices, mid.ID) || hasVertex(inbound.Vertices, root.ID) {
-		t.Fatalf("TraverseGraph inbound depth 1: got vertices %+v", inbound.Vertices)
-	}
-}
-
-func hasVertex(vs []entitygraph.Entity, id string) bool {
-	for _, v := range vs {
-		if v.ID == id {
-			return true
-		}
-	}
-	return false
 }

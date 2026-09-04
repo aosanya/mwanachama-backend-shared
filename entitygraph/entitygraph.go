@@ -31,7 +31,7 @@ var ErrRelationshipCardinalityViolation = errors.New("relationship cardinality v
 var ErrRequiredRelationshipViolation = errors.New("required relationship violation")
 
 // ErrSchemaNotFound is returned by SchemaManager methods when no schema
-// document (draft or published) exists for the given agency or version.
+// document (draft or published) exists for the given version.
 var ErrSchemaNotFound = errors.New("schema not found")
 
 // ErrEntityNotFound is returned by GetEntity, UpdateEntity, DeleteEntity, and
@@ -39,12 +39,11 @@ var ErrSchemaNotFound = errors.New("schema not found")
 var ErrEntityNotFound = errors.New("entity not found")
 
 // ErrEntityAlreadyExists is returned by CreateEntity when an entity with the
-// same ID already exists for the agency.
+// same ID already exists.
 var ErrEntityAlreadyExists = errors.New("entity already exists")
 
-// ErrRelationshipNotFound is returned by GetRelationship and
-// DeleteRelationship when no relationship with the given ID exists for the
-// agency.
+// ErrRelationshipNotFound is returned by DeleteRelationship when no
+// relationship with the given ID exists.
 var ErrRelationshipNotFound = errors.New("relationship not found")
 
 // ErrImmutableType is returned by UpdateEntity when the entity's
@@ -56,9 +55,15 @@ var ErrImmutableType = errors.New("entity type is immutable")
 // is empty or nil).
 var ErrUniqueKeyNotDefined = errors.New("unique key not defined for type")
 
-// DataManager is the business-logic entry point for entity lifecycle and
-// graph operations. mwanachama-backend-git and mwanachama-backend-taskmanager alias this as
-// their own service-scoped interface and are ported against it unchanged.
+// DataManager is the business-logic entry point for entity lifecycle.
+// Relationship CRUD (CreateRelationship/DeleteRelationship/
+// ListRelationships) is deliberately not part of this interface — each
+// backend (postgres.Backend, postgres.PerCollectionBackend, memory.Backend)
+// still implements those as plain exported methods, but each consumer knows
+// its own fixed set of relationship labels and physical tables at compile
+// time, so it declares its own narrower local interface embedding
+// DataManager plus the relationship methods it needs, rather than routing
+// through one generic, storage-agnostic filter here.
 //
 // Schema operations are not in scope — see SchemaManager.
 //
@@ -68,26 +73,25 @@ var ErrUniqueKeyNotDefined = errors.New("unique key not defined for type")
 // All methods accept context.Context as the first argument for cancellation
 // and deadline propagation.
 type DataManager interface {
-	// CreateEntity creates a new entity of the given type for the agency.
-	// The TypeID must match a TypeDefinition.Name in the agency's current
-	// schema. Returns ErrEntityAlreadyExists if an entity with the same ID
-	// already exists.
+	// CreateEntity creates a new entity of the given type. The TypeID must
+	// match a TypeDefinition.Name in the current schema. Returns
+	// ErrEntityAlreadyExists if an entity with the same ID already exists.
 	CreateEntity(ctx context.Context, req CreateEntityRequest) (Entity, error)
 
-	// GetEntity returns the entity identified by agencyID and entityID.
-	// Returns ErrEntityNotFound if no entity matches.
-	GetEntity(ctx context.Context, agencyID, entityID string) (Entity, error)
+	// GetEntity returns the entity identified by entityID. Returns
+	// ErrEntityNotFound if no entity matches.
+	GetEntity(ctx context.Context, entityID string) (Entity, error)
 
 	// UpdateEntity patches the properties of an existing entity. Returns
 	// ErrEntityNotFound if the entity does not exist. Returns
 	// ErrImmutableType if the entity's type has Immutable set to true.
-	UpdateEntity(ctx context.Context, agencyID, entityID string, req UpdateEntityRequest) (Entity, error)
+	UpdateEntity(ctx context.Context, entityID string, req UpdateEntityRequest) (Entity, error)
 
 	// DeleteEntity soft-deletes the entity by setting Deleted=true and
 	// recording DeletedAt. Relationships referencing the entity are
 	// retained as orphans. Returns ErrEntityNotFound if the entity does not
 	// exist.
-	DeleteEntity(ctx context.Context, agencyID, entityID string) error
+	DeleteEntity(ctx context.Context, entityID string) error
 
 	// ListEntities returns all entities matching the filter. Soft-deleted
 	// entities are excluded from the results.
@@ -100,27 +104,4 @@ type DataManager interface {
 	// Returns ErrUniqueKeyNotDefined if the TypeDefinition has no
 	// UniqueKey declared.
 	UpsertEntity(ctx context.Context, req CreateEntityRequest) (Entity, error)
-
-	// CreateRelationship creates a directed edge between two entities.
-	// Returns ErrEntityNotFound if either the FromID or ToID entity does
-	// not exist.
-	CreateRelationship(ctx context.Context, req CreateRelationshipRequest) (Relationship, error)
-
-	// GetRelationship returns the relationship identified by agencyID and
-	// relationshipID. Returns ErrRelationshipNotFound if no relationship
-	// matches.
-	GetRelationship(ctx context.Context, agencyID, relationshipID string) (Relationship, error)
-
-	// DeleteRelationship removes the edge permanently. Returns
-	// ErrRelationshipNotFound if no relationship matches.
-	DeleteRelationship(ctx context.Context, agencyID, relationshipID string) error
-
-	// ListRelationships returns all edges matching the filter. Zero-value
-	// filter fields are ignored (no filtering on that field).
-	ListRelationships(ctx context.Context, filter RelationshipFilter) ([]Relationship, error)
-
-	// TraverseGraph walks the entity graph from StartID to the given Depth
-	// and returns all reachable vertices and traversed edges. Soft-deleted
-	// entities are excluded from the result vertices.
-	TraverseGraph(ctx context.Context, req TraverseGraphRequest) (TraverseGraphResult, error)
 }

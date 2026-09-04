@@ -162,7 +162,7 @@ func TestValidateSchema_ValidSchema_NoError(t *testing.T) {
 }
 
 func TestValidateSchema_EmptySchema_NoError(t *testing.T) {
-	s := schema.Schema{ID: "empty", AgencyID: "agency-1"}
+	s := schema.Schema{ID: "empty"}
 	if err := entitygraph.ValidateSchema(s); err != nil {
 		t.Errorf("unexpected error for empty schema: %v", err)
 	}
@@ -170,8 +170,7 @@ func TestValidateSchema_EmptySchema_NoError(t *testing.T) {
 
 func TestValidateSchema_DuplicateTypeName_ReturnsError(t *testing.T) {
 	s := schema.Schema{
-		ID:       "dup-names",
-		AgencyID: "agency-1",
+		ID: "dup-names",
 		Types: []schema.TypeDefinition{
 			{Name: "Pump"},
 			{Name: "Pump"},
@@ -184,8 +183,7 @@ func TestValidateSchema_DuplicateTypeName_ReturnsError(t *testing.T) {
 
 func TestValidateSchema_InverseToTypeNotFound_ReturnsError(t *testing.T) {
 	s := schema.Schema{
-		ID:       "bad-inverse-totype",
-		AgencyID: "agency-1",
+		ID: "bad-inverse-totype",
 		Types: []schema.TypeDefinition{
 			{
 				Name: "Agency",
@@ -203,8 +201,7 @@ func TestValidateSchema_InverseToTypeNotFound_ReturnsError(t *testing.T) {
 
 func TestValidateSchema_InverseNotDeclaredOnToType_ReturnsError(t *testing.T) {
 	s := schema.Schema{
-		ID:       "missing-inverse-decl",
-		AgencyID: "agency-1",
+		ID: "missing-inverse-decl",
 		Types: []schema.TypeDefinition{
 			{
 				Name: "Agency",
@@ -225,8 +222,7 @@ func TestValidateSchema_InverseNotDeclaredOnToType_ReturnsError(t *testing.T) {
 
 func TestValidateSchema_ValidInverse_NoError(t *testing.T) {
 	s := schema.Schema{
-		ID:       "valid-inverse",
-		AgencyID: "agency-1",
+		ID: "valid-inverse",
 		Types: []schema.TypeDefinition{
 			{
 				Name: "Agency",
@@ -249,8 +245,7 @@ func TestValidateSchema_ValidInverse_NoError(t *testing.T) {
 
 func TestValidateSchema_UniqueKeyFieldNotInProperties_ReturnsError(t *testing.T) {
 	s := schema.Schema{
-		ID:       "bad-unique-key",
-		AgencyID: "agency-1",
+		ID: "bad-unique-key",
 		Types: []schema.TypeDefinition{
 			{
 				Name:       "Agent",
@@ -266,8 +261,7 @@ func TestValidateSchema_UniqueKeyFieldNotInProperties_ReturnsError(t *testing.T)
 
 func TestValidateSchema_UniqueKeyFieldInProperties_NoError(t *testing.T) {
 	s := schema.Schema{
-		ID:       "good-unique-key",
-		AgencyID: "agency-1",
+		ID: "good-unique-key",
 		Types: []schema.TypeDefinition{
 			{
 				Name:       "Agent",

@@ -12,7 +12,7 @@ import (
 	"github.com/aosanya/mwanachama-backend-shared/entitygraph"
 )
 
-const entityCols = `id, agency_id, type_id, properties, created_at, updated_at, deleted, deleted_at`
+const entityCols = `id, type_id, properties, created_at, updated_at, deleted, deleted_at`
 
 // CreateEntity implements entitygraph.DataManager. Inline
 // req.Relationships (if any) are inserted as relationship rows in the same
@@ -36,18 +36,18 @@ func (b *Backend) CreateEntity(ctx context.Context, req entitygraph.CreateEntity
 	defer func() { _ = tx.Rollback() }()
 
 	id := uuid.NewString()
-	q := fmt.Sprintf(`INSERT INTO %s (id, agency_id, type_id, properties, created_at, updated_at)
-	                   VALUES ($1, $2, $3, $4, now(), now())
+	q := fmt.Sprintf(`INSERT INTO %s (id, type_id, properties, created_at, updated_at)
+	                   VALUES ($1, $2, $3, now(), now())
 	                   RETURNING %s`, b.tables.Entities, entityCols)
-	out, err := scanEntity(tx.QueryRowContext(ctx, q, id, req.AgencyID, req.TypeID, propsJSON))
+	out, err := scanEntity(tx.QueryRowContext(ctx, q, id, req.TypeID, propsJSON))
 	if err != nil {
 		return entitygraph.Entity{}, classify(err)
 	}
 
 	for _, rel := range req.Relationships {
-		relQ := fmt.Sprintf(`INSERT INTO %s (id, agency_id, name, from_id, to_id, properties, created_at)
-		                      VALUES ($1, $2, $3, $4, $5, '{}'::jsonb, now())`, b.tables.Relationships)
-		if _, err := tx.ExecContext(ctx, relQ, uuid.NewString(), req.AgencyID, rel.Name, out.ID, rel.ToID); err != nil {
+		relQ := fmt.Sprintf(`INSERT INTO %s (id, name, from_id, to_id, properties, created_at)
+		                      VALUES ($1, $2, $3, $4, '{}'::jsonb, now())`, b.tables.Relationships)
+		if _, err := tx.ExecContext(ctx, relQ, uuid.NewString(), rel.Name, out.ID, rel.ToID); err != nil {
 			return entitygraph.Entity{}, classify(err)
 		}
 	}
@@ -59,9 +59,9 @@ func (b *Backend) CreateEntity(ctx context.Context, req entitygraph.CreateEntity
 }
 
 // GetEntity implements entitygraph.DataManager.
-func (b *Backend) GetEntity(ctx context.Context, agencyID, entityID string) (entitygraph.Entity, error) {
-	q := fmt.Sprintf(`SELECT %s FROM %s WHERE id = $1 AND agency_id = $2 AND NOT deleted`, entityCols, b.tables.Entities)
-	out, err := scanEntity(b.db.QueryRowContext(ctx, q, entityID, agencyID))
+func (b *Backend) GetEntity(ctx context.Context, entityID string) (entitygraph.Entity, error) {
+	q := fmt.Sprintf(`SELECT %s FROM %s WHERE id = $1 AND NOT deleted`, entityCols, b.tables.Entities)
+	out, err := scanEntity(b.db.QueryRowContext(ctx, q, entityID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return entitygraph.Entity{}, entitygraph.ErrEntityNotFound
 	}
@@ -74,15 +74,15 @@ func (b *Backend) GetEntity(ctx context.Context, agencyID, entityID string) (ent
 // UpdateEntity implements entitygraph.DataManager. Only the keys present in
 // req.Properties are patched — existing keys not mentioned are left
 // unchanged (jsonb `||` semantics).
-func (b *Backend) UpdateEntity(ctx context.Context, agencyID, entityID string, req entitygraph.UpdateEntityRequest) (entitygraph.Entity, error) {
+func (b *Backend) UpdateEntity(ctx context.Context, entityID string, req entitygraph.UpdateEntityRequest) (entitygraph.Entity, error) {
 	patchJSON, err := jsonOrEmpty(req.Properties)
 	if err != nil {
 		return entitygraph.Entity{}, err
 	}
-	q := fmt.Sprintf(`UPDATE %s SET properties = properties || $3::jsonb, updated_at = now()
-	                   WHERE id = $1 AND agency_id = $2 AND NOT deleted
+	q := fmt.Sprintf(`UPDATE %s SET properties = properties || $2::jsonb, updated_at = now()
+	                   WHERE id = $1 AND NOT deleted
 	                   RETURNING %s`, b.tables.Entities, entityCols)
-	out, err := scanEntity(b.db.QueryRowContext(ctx, q, entityID, agencyID, patchJSON))
+	out, err := scanEntity(b.db.QueryRowContext(ctx, q, entityID, patchJSON))
 	if errors.Is(err, sql.ErrNoRows) {
 		return entitygraph.Entity{}, entitygraph.ErrEntityNotFound
 	}
@@ -95,10 +95,10 @@ func (b *Backend) UpdateEntity(ctx context.Context, agencyID, entityID string, r
 // DeleteEntity implements entitygraph.DataManager (soft delete).
 // Relationships referencing the entity are left in place as orphans, per
 // the interface contract.
-func (b *Backend) DeleteEntity(ctx context.Context, agencyID, entityID string) error {
+func (b *Backend) DeleteEntity(ctx context.Context, entityID string) error {
 	q := fmt.Sprintf(`UPDATE %s SET deleted = true, deleted_at = now(), updated_at = now()
-	                   WHERE id = $1 AND agency_id = $2 AND NOT deleted`, b.tables.Entities)
-	res, err := b.db.ExecContext(ctx, q, entityID, agencyID)
+	                   WHERE id = $1 AND NOT deleted`, b.tables.Entities)
+	res, err := b.db.ExecContext(ctx, q, entityID)
 	if err != nil {
 		return err
 	}
@@ -126,11 +126,10 @@ func (b *Backend) ListEntities(ctx context.Context, filter entitygraph.EntityFil
 	}
 	q := fmt.Sprintf(`SELECT %s FROM %s
 	                   WHERE NOT deleted
-	                     AND ($1 = '' OR agency_id = $1)
-	                     AND ($2 = '' OR type_id = $2)
-	                     AND ($3::jsonb IS NULL OR properties @> $3::jsonb)
+	                     AND ($1 = '' OR type_id = $1)
+	                     AND ($2::jsonb IS NULL OR properties @> $2::jsonb)
 	                   ORDER BY created_at, id`, entityCols, b.tables.Entities)
-	rows, err := b.db.QueryContext(ctx, q, filter.AgencyID, filter.TypeID, propsFilter)
+	rows, err := b.db.QueryContext(ctx, q, filter.TypeID, propsFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -147,13 +146,12 @@ func (b *Backend) ListEntities(ctx context.Context, filter entitygraph.EntityFil
 	return out, rows.Err()
 }
 
-// UpsertEntity implements entitygraph.DataManager. Looks up the agency's
-// active schema to find req.TypeID's UniqueKey, computes a deterministic
-// key from those properties, and lets Postgres's ON CONFLICT do the
-// find-or-merge atomically (entities_agency_unique_key_idx is the conflict
-// target).
+// UpsertEntity implements entitygraph.DataManager. Looks up the active
+// schema to find req.TypeID's UniqueKey, computes a deterministic key from
+// those properties, and lets Postgres's ON CONFLICT do the find-or-merge
+// atomically (entities_unique_key_idx is the conflict target).
 func (b *Backend) UpsertEntity(ctx context.Context, req entitygraph.CreateEntityRequest) (entitygraph.Entity, error) {
-	active, err := b.GetActive(ctx, req.AgencyID)
+	active, err := b.GetActive(ctx)
 	if err != nil {
 		return entitygraph.Entity{}, err
 	}
@@ -178,12 +176,12 @@ func (b *Backend) UpsertEntity(ctx context.Context, req entitygraph.CreateEntity
 		return entitygraph.Entity{}, err
 	}
 
-	q := fmt.Sprintf(`INSERT INTO %[1]s (id, agency_id, type_id, properties, unique_key, created_at, updated_at)
-	                   VALUES ($1, $2, $3, $4, $5, now(), now())
-	                   ON CONFLICT (agency_id, type_id, unique_key) WHERE unique_key IS NOT NULL AND NOT deleted
+	q := fmt.Sprintf(`INSERT INTO %[1]s (id, type_id, properties, unique_key, created_at, updated_at)
+	                   VALUES ($1, $2, $3, $4, now(), now())
+	                   ON CONFLICT (type_id, unique_key) WHERE unique_key IS NOT NULL AND NOT deleted
 	                   DO UPDATE SET properties = %[1]s.properties || EXCLUDED.properties, updated_at = now()
 	                   RETURNING %[2]s`, b.tables.Entities, entityCols)
-	out, err := scanEntity(b.db.QueryRowContext(ctx, q, uuid.NewString(), req.AgencyID, req.TypeID, propsJSON, string(uniqueKey)))
+	out, err := scanEntity(b.db.QueryRowContext(ctx, q, uuid.NewString(), req.TypeID, propsJSON, string(uniqueKey)))
 	if err != nil {
 		return entitygraph.Entity{}, classify(err)
 	}

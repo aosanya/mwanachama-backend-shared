@@ -37,7 +37,7 @@ func TestBackend_Conformance(t *testing.T) {
 	})
 
 	b := postgres.NewBackend(db, tables)
-	entitygraphtest.Run(t, b, b, "agency-1")
+	entitygraphtest.Run(t, b, b)
 }
 
 // applyDDL runs a multi-statement SQL script as one command, the way

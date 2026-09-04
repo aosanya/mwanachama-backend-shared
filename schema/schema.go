@@ -172,6 +172,18 @@ type RelationshipDefinition struct {
 	// the same Properties so callers traversing in either direction see
 	// identical metadata.
 	Properties []PropertyDefinition
+
+	// StorageTable is the physical table this relationship's rows live in
+	// — read by mwanachama-backend-shared/postgres.PerCollectionBackend,
+	// which gives each relationship type its own table (with from_id/to_id
+	// as real foreign keys straight to the two content tables it
+	// connects) instead of one shared relationships table. Mirrors
+	// TypeDefinition.StorageCollection: the schema author names it
+	// explicitly, the library never derives it. Convention: the two
+	// connected types with an X between them, e.g. "memberXgroup" for a
+	// Member -> Group edge. Ignored by the single-table Backend, same as
+	// StorageCollection is.
+	StorageTable string
 }
 
 // TypeDefinition declares a named class of entity within a [Schema].
@@ -220,15 +232,12 @@ type TypeDefinition struct {
 	UniqueKey []string
 }
 
-// Schema is a versioned, immutable collection of [TypeDefinition]s for one
-// agency. Updating the schema produces a new version; previous versions are
+// Schema is a versioned, immutable collection of [TypeDefinition]s.
+// Updating the schema produces a new version; previous versions are
 // preserved.
 type Schema struct {
 	// ID is the unique identifier for this schema version (UUID).
 	ID string
-
-	// AgencyID is the agency this schema belongs to.
-	AgencyID string
 
 	// Version is the auto-incrementing version number (1, 2, 3, …). The
 	// first publish produces Version 1; each subsequent call increments by
@@ -237,8 +246,8 @@ type Schema struct {
 
 	// Active is true for the single published schema version that is
 	// currently in use for write operations (CreateEntity,
-	// CreateRelationship). Only one published version per agency can be
-	// active at a time. Draft documents always have Active = false.
+	// CreateRelationship). Only one published version can be active at a
+	// time. Draft documents always have Active = false.
 	Active bool
 
 	// Tag is the human-readable version label (e.g. "v1", "v2").

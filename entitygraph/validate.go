@@ -84,7 +84,7 @@ func ValidateSchema(s schema.Schema) error {
 
 	for _, td := range s.Types {
 		if _, dup := typeNames[td.Name]; dup {
-			return fmt.Errorf("ValidateSchema %s: duplicate type name %q", s.AgencyID, td.Name)
+			return fmt.Errorf("ValidateSchema: duplicate type name %q", td.Name)
 		}
 		typeNames[td.Name] = struct{}{}
 	}
@@ -94,12 +94,12 @@ func ValidateSchema(s schema.Schema) error {
 			if rd.Inverse != "" {
 				toTypeDef, err := FindTypeDef(s, rd.ToType)
 				if err != nil {
-					return fmt.Errorf("ValidateSchema %s: type %q: relationship %q: ToType %q not found in schema",
-						s.AgencyID, td.Name, rd.Name, rd.ToType)
+					return fmt.Errorf("ValidateSchema: type %q: relationship %q: ToType %q not found in schema",
+						td.Name, rd.Name, rd.ToType)
 				}
 				if _, err := FindRelationshipDef(toTypeDef, rd.Inverse); err != nil {
-					return fmt.Errorf("ValidateSchema %s: type %q: relationship %q: inverse %q not declared on %q",
-						s.AgencyID, td.Name, rd.Name, rd.Inverse, rd.ToType)
+					return fmt.Errorf("ValidateSchema: type %q: relationship %q: inverse %q not declared on %q",
+						td.Name, rd.Name, rd.Inverse, rd.ToType)
 				}
 			}
 		}
@@ -112,8 +112,8 @@ func ValidateSchema(s schema.Schema) error {
 			}
 			for _, keyField := range td.UniqueKey {
 				if _, ok := propNames[keyField]; !ok {
-					return fmt.Errorf("ValidateSchema %s: type %q: UniqueKey field %q not found in Properties",
-						s.AgencyID, td.Name, keyField)
+					return fmt.Errorf("ValidateSchema: type %q: UniqueKey field %q not found in Properties",
+						td.Name, keyField)
 				}
 			}
 		}

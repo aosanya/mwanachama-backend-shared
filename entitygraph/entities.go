@@ -3,18 +3,15 @@ package entitygraph
 import "time"
 
 // Entity is an instance of a typed real-world object managed by a
-// DataManager. TypeID matches TypeDefinition.Name in the agency's current
-// schema. Properties hold the current state values; no schema validation is
+// DataManager. TypeID matches TypeDefinition.Name in the current schema.
+// Properties hold the current state values; no schema validation is
 // performed. Deleted and DeletedAt are set by DeleteEntity (soft delete) —
 // the entity is never hard-deleted.
 type Entity struct {
 	// ID is the unique identifier for this entity (UUID).
 	ID string `json:"id"`
 
-	// AgencyID is the agency this entity belongs to.
-	AgencyID string `json:"agencyId"`
-
-	// TypeID matches TypeDefinition.Name in the agency's current schema
+	// TypeID matches TypeDefinition.Name in the current schema
 	// (e.g. "Task", "Repository").
 	TypeID string `json:"typeId"`
 
@@ -37,11 +34,7 @@ type Entity struct {
 
 // CreateEntityRequest is the input for creating a new entity.
 type CreateEntityRequest struct {
-	// AgencyID is the owning agency.
-	AgencyID string
-
-	// TypeID must match a TypeDefinition.Name in the agency's current
-	// schema.
+	// TypeID must match a TypeDefinition.Name in the current schema.
 	TypeID string
 
 	// Properties are the initial state values for the entity.
@@ -78,10 +71,6 @@ type UpdateEntityRequest struct {
 // EntityFilter scopes a ListEntities query. Zero-value fields are ignored
 // (no filtering applied for that field).
 type EntityFilter struct {
-	// AgencyID restricts results to this agency. If empty, all agencies are
-	// included.
-	AgencyID string
-
 	// TypeID restricts results to entities of this type. If empty, all
 	// entity types are included.
 	TypeID string
@@ -96,9 +85,6 @@ type EntityFilter struct {
 type Relationship struct {
 	// ID is the unique identifier for this relationship (UUID).
 	ID string `json:"id"`
-
-	// AgencyID is the agency this relationship belongs to.
-	AgencyID string `json:"agencyId"`
 
 	// Name is the semantic label for this edge (e.g. "assigned_to",
 	// "has_branch").
@@ -120,9 +106,6 @@ type Relationship struct {
 // CreateRelationshipRequest is the input for creating a directed graph edge
 // between two entities.
 type CreateRelationshipRequest struct {
-	// AgencyID is the owning agency.
-	AgencyID string
-
 	// Name is the semantic label for the edge.
 	Name string
 
@@ -139,9 +122,6 @@ type CreateRelationshipRequest struct {
 // RelationshipFilter scopes a ListRelationships query. Zero-value fields
 // are ignored (no filtering applied for that field).
 type RelationshipFilter struct {
-	// AgencyID restricts results to this agency.
-	AgencyID string
-
 	// FromID filters by source entity ID; empty means any source.
 	FromID string
 
@@ -150,36 +130,4 @@ type RelationshipFilter struct {
 
 	// Name filters by relationship type label; empty means all labels.
 	Name string
-}
-
-// TraverseGraphRequest walks the entity graph from a starting entity.
-type TraverseGraphRequest struct {
-	// AgencyID is the owning agency.
-	AgencyID string
-
-	// StartID is the entity ID from which traversal begins.
-	StartID string
-
-	// Direction is the traversal direction: "outbound", "inbound", or
-	// "any".
-	Direction string
-
-	// Depth is the maximum traversal depth. 0 is treated as 1.
-	Depth int
-
-	// Names restricts traversal to edges whose Name is in this list. An
-	// empty or nil slice means no filtering — all reachable edges are
-	// followed regardless of label.
-	Names []string
-}
-
-// TraverseGraphResult is returned by TraverseGraph. Both visited vertices
-// and traversed edges are included so callers can inspect relationship
-// names and properties without a second round-trip.
-type TraverseGraphResult struct {
-	// Vertices are all reachable entities, excluding soft-deleted ones.
-	Vertices []Entity
-
-	// Edges are the traversed relationships in order of discovery.
-	Edges []Relationship
 }

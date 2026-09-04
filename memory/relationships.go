@@ -38,7 +38,6 @@ func (b *Backend) CreateRelationship(ctx context.Context, req entitygraph.Create
 
 	r := entitygraph.Relationship{
 		ID:         uuid.NewString(),
-		AgencyID:   req.AgencyID,
 		Name:       req.Name,
 		FromID:     req.FromID,
 		ToID:       req.ToID,
@@ -49,25 +48,13 @@ func (b *Backend) CreateRelationship(ctx context.Context, req entitygraph.Create
 	return r, nil
 }
 
-// GetRelationship implements entitygraph.DataManager.
-func (b *Backend) GetRelationship(ctx context.Context, agencyID, relationshipID string) (entitygraph.Relationship, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	r, ok := b.relationships[relationshipID]
-	if !ok || r.AgencyID != agencyID {
-		return entitygraph.Relationship{}, entitygraph.ErrRelationshipNotFound
-	}
-	return r, nil
-}
-
 // DeleteRelationship implements entitygraph.DataManager.
-func (b *Backend) DeleteRelationship(ctx context.Context, agencyID, relationshipID string) error {
+func (b *Backend) DeleteRelationship(ctx context.Context, relationshipID string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	r, ok := b.relationships[relationshipID]
-	if !ok || r.AgencyID != agencyID {
+	_, ok := b.relationships[relationshipID]
+	if !ok {
 		return entitygraph.ErrRelationshipNotFound
 	}
 	delete(b.relationships, relationshipID)
@@ -81,9 +68,6 @@ func (b *Backend) ListRelationships(ctx context.Context, filter entitygraph.Rela
 
 	out := []entitygraph.Relationship{}
 	for _, r := range b.relationships {
-		if filter.AgencyID != "" && r.AgencyID != filter.AgencyID {
-			continue
-		}
 		if filter.FromID != "" && r.FromID != filter.FromID {
 			continue
 		}

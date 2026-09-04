@@ -14,8 +14,12 @@ entity/relationship graph store built for CodeValdCortex agencies), but:
 
 - **Retargeted to Postgres.** Entities live in one `entities` table
   (`type_id` + `jsonb properties` + soft-delete columns) instead of one
-  Arango collection per type; edges live in one `relationships` table;
-  `TraverseGraph` is a recursive CTE instead of an AQL graph traversal.
+  Arango collection per type; edges live in one `relationships` table.
+  The original ArangoDB backend's AQL graph traversal was ported here as a
+  server-side `TraverseGraph` (a recursive CTE) but has since been removed
+  from `DataManager` as part of retiring per-agency scoping — consumers
+  (e.g. `mwanachama-backend-git`'s `traverseNeighborhood`) now walk the
+  graph client-side via `ListRelationships`/`GetEntity` instead.
 - **No `CodeValdSharedLib` dependency.** This is meant to be a standalone
   public library — `CodeValdSharedLib` is private and unpublished — so the
   `Entity`/`Relationship`/`DataManager`/`SchemaManager`/`Schema` contract is
@@ -38,9 +42,11 @@ entity/relationship graph store built for CodeValdCortex agencies), but:
   column and a normal index removes that whole class of complexity. Don't
   reintroduce per-type tables.
 - **`SchemaManager.Activate` must be a real transaction** (`UPDATE ... FOR
-  UPDATE` / single `pgx.Tx`) enforcing exactly one active schema version per
-  agency — the Arango original did this as two sequential AQL statements,
-  which was never actually atomic. Fix it here rather than port the bug.
+  UPDATE` / single `pgx.Tx`) enforcing exactly one active schema version,
+  full stop (this is a single-tenant store — one deployment, one schema) —
+  the Arango original did this as two sequential AQL statements scoped per
+  agency, which was never actually atomic. Fix it here rather than port the
+  bug.
 - **Vertex uniqueness (`TypeDefinition.UniqueKey`) is schema-enforced**, not
   just app-checked — map it to a real Postgres partial/composite unique index
   per type, not a pre-check-then-insert race.
