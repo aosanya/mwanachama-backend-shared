@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/aosanya/mwanachama-backend-shared/orgsettings/gormstore"
 	"github.com/aosanya/mwanachama-backend-shared/orgsettings/models"
@@ -52,9 +53,18 @@ func (s *Store) Get(ctx context.Context, slug string) (models.Settings, error) {
 }
 
 // Put upserts a settings record by slug and returns the persisted value.
+//
+// Uses an explicit ON CONFLICT clause rather than GORM's Save — Save treats
+// a non-empty primary key as "do an UPDATE", which would silently affect
+// zero rows on the very first Put for a slug instead of inserting one.
 func (s *Store) Put(ctx context.Context, in models.Settings) (models.Settings, error) {
 	row := gormstore.SettingsToRow(in)
-	err := s.db.WithContext(ctx).Table(s.tables.OrgSettings).Save(&row).Error
+	err := s.db.WithContext(ctx).Table(s.tables.OrgSettings).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "slug"}},
+			UpdateAll: true,
+		}).
+		Create(&row).Error
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == sqlstateCheckViolation {
