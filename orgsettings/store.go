@@ -1,4 +1,4 @@
-package orgchrome
+package orgsettings
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 )
 
 // sqlstateCheckViolation is Postgres's SQLSTATE for a violated CHECK
-// constraint — org_chrome_dialling_region_shape is the only one this table
+// constraint — org_settings_dialling_region_shape is the only one this table
 // carries.
 const sqlstateCheckViolation = "23514"
 
@@ -20,13 +20,14 @@ const sqlstateCheckViolation = "23514"
 // (a separate, not-yet-done pass); callers that want a domerr-shaped error
 // can wrap this themselves.
 var ErrInvalidDiallingRegion = errors.New(
-	"orgchrome: default_dialling_region must be an ISO-3166-1 alpha-2 code or empty")
+	"orgsettings: default_dialling_region must be an ISO-3166-1 alpha-2 code or empty")
 
-// schema creates the org_chrome table if it doesn't already exist — the same
-// self-healing idiom every mwanachamaX.Migrate(db, ...) call in the
+// schema creates the org_settings table if it doesn't already exist — the
+// same self-healing idiom every mwanachamaX.Migrate(db, ...) call in the
 // gateway's stores.go already follows, ported from
 // mwanachama-backend-api-gateway's own migrations_archive/000001_orgchrome.up.sql
-// and migrations_archive/000023_org_dialling_region.up.sql (DEV-1258).
+// and migrations_archive/000023_org_dialling_region.up.sql (DEV-1258), then
+// renamed org_chrome -> org_settings (DEV-1683 follow-up).
 //
 // default_dialling_region carries a real CHECK, not just a Go-level guard:
 // ISO-3166-1 alpha-2 uppercase or empty. Per G366/DSN-1479 (2026-08-22), a
@@ -37,7 +38,7 @@ var ErrInvalidDiallingRegion = errors.New(
 // rather than folded because the region parser downstream is case-sensitive
 // on region codes.
 const schema = `
-CREATE TABLE IF NOT EXISTS org_chrome (
+CREATE TABLE IF NOT EXISTS org_settings (
     slug                     TEXT PRIMARY KEY,
     display_name             TEXT NOT NULL DEFAULT '',
     primary_color            TEXT NOT NULL DEFAULT '',
@@ -46,13 +47,13 @@ CREATE TABLE IF NOT EXISTS org_chrome (
     support_email            TEXT NOT NULL DEFAULT '',
     updated_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
     default_dialling_region  TEXT NOT NULL DEFAULT ''
-        CONSTRAINT org_chrome_dialling_region_shape
+        CONSTRAINT org_settings_dialling_region_shape
         CHECK (default_dialling_region = '' OR default_dialling_region ~ '^[A-Z]{2}$')
 )`
 
-// Migrate creates the org_chrome table if it doesn't already exist. Callers
-// run this once at startup (or in test setup) before constructing a Store
-// with the same db.
+// Migrate creates the org_settings table if it doesn't already exist.
+// Callers run this once at startup (or in test setup) before constructing a
+// Store with the same db.
 func Migrate(ctx context.Context, db *sql.DB) error {
 	_, err := db.ExecContext(ctx, schema)
 	return err
@@ -66,31 +67,31 @@ type Store struct {
 // NewStore constructs a store over the given pool.
 func NewStore(db *sql.DB) *Store { return &Store{db: db} }
 
-// Get returns the chrome record for slug, or ErrNotFound when there is no
+// Get returns the settings record for slug, or ErrNotFound when there is no
 // row.
-func (s *Store) Get(ctx context.Context, slug string) (Chrome, error) {
+func (s *Store) Get(ctx context.Context, slug string) (Settings, error) {
 	const q = `SELECT slug, display_name, primary_color, accent_color, logo_url, support_email,
 	                  default_dialling_region
-	           FROM org_chrome WHERE slug = $1`
-	var c Chrome
+	           FROM org_settings WHERE slug = $1`
+	var out Settings
 	err := s.db.QueryRowContext(ctx, q, slug).Scan(
-		&c.Slug, &c.DisplayName, &c.PrimaryColor, &c.AccentColor, &c.LogoURL, &c.SupportEmail,
-		&c.DefaultDiallingRegion,
+		&out.Slug, &out.DisplayName, &out.PrimaryColor, &out.AccentColor, &out.LogoURL, &out.SupportEmail,
+		&out.DefaultDiallingRegion,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return Chrome{}, ErrNotFound
+		return Settings{}, ErrNotFound
 	}
 	if err != nil {
-		return Chrome{}, err
+		return Settings{}, err
 	}
-	return c, nil
+	return out, nil
 }
 
-// Put upserts a chrome record by slug and returns the persisted value.
-func (s *Store) Put(ctx context.Context, c Chrome) (Chrome, error) {
+// Put upserts a settings record by slug and returns the persisted value.
+func (s *Store) Put(ctx context.Context, in Settings) (Settings, error) {
 	const q = `
-		INSERT INTO org_chrome (slug, display_name, primary_color, accent_color, logo_url, support_email,
-		                        default_dialling_region, updated_at)
+		INSERT INTO org_settings (slug, display_name, primary_color, accent_color, logo_url, support_email,
+		                          default_dialling_region, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
 		ON CONFLICT (slug) DO UPDATE SET
 		    display_name            = EXCLUDED.display_name,
@@ -102,10 +103,10 @@ func (s *Store) Put(ctx context.Context, c Chrome) (Chrome, error) {
 		    updated_at              = NOW()
 		RETURNING slug, display_name, primary_color, accent_color, logo_url, support_email,
 		          default_dialling_region`
-	var out Chrome
+	var out Settings
 	err := s.db.QueryRowContext(ctx, q,
-		c.Slug, c.DisplayName, c.PrimaryColor, c.AccentColor, c.LogoURL, c.SupportEmail,
-		c.DefaultDiallingRegion,
+		in.Slug, in.DisplayName, in.PrimaryColor, in.AccentColor, in.LogoURL, in.SupportEmail,
+		in.DefaultDiallingRegion,
 	).Scan(
 		&out.Slug, &out.DisplayName, &out.PrimaryColor, &out.AccentColor, &out.LogoURL, &out.SupportEmail,
 		&out.DefaultDiallingRegion,
@@ -113,9 +114,9 @@ func (s *Store) Put(ctx context.Context, c Chrome) (Chrome, error) {
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == sqlstateCheckViolation {
-			return Chrome{}, ErrInvalidDiallingRegion
+			return Settings{}, ErrInvalidDiallingRegion
 		}
-		return Chrome{}, err
+		return Settings{}, err
 	}
 	return out, nil
 }

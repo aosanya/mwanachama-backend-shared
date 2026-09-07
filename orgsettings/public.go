@@ -1,28 +1,28 @@
-package orgchrome
+package orgsettings
 
-// PublicChrome is what an **unauthenticated** reader gets from this object,
+// PublicSettings is what an **unauthenticated** reader gets from this object,
 // and it is a separate type on purpose (DEV-1284).
 //
 // # Why a type and not a comment
 //
-// `GET /v1/org-chrome/{slug}` carries no session at all — router.go registers
-// it with no capability wrapper, because a guest home and a sign-in screen
-// have to carry the organization's mark before anybody has authenticated,
-// which is what white-label means at the door.
+// `GET /v1/org-settings/{slug}` carries no session at all — router.go
+// registers it with no capability wrapper, because a guest home and a
+// sign-in screen have to carry the organization's mark before anybody has
+// authenticated, which is what white-label means at the door.
 //
-// Until this type existed the handler returned the whole `Chrome` row, and
+// Until this type existed the handler returned the whole `Settings` row, and
 // nothing leaked only because of which columns happened to exist. That is an
 // accident of coverage, not a rule being honoured — RLS on the retiring
 // Supabase party plane kept `paybill` and `statement_format` behind the
 // session; this plane has no RLS by design (authorization is Go, beside the
 // handler), so the fence has to be a Go instrument or it is nothing.
 //
-// The property this buys: **adding a field to Chrome does not widen the guest
-// read.** A new column reaches a guest only if somebody adds it here too,
-// which is a deliberate line in a diff rather than a silent consequence of a
-// migration. TestPublicChromeFieldsAreDeliberate fails when the two types
-// drift, so the decision cannot be skipped by accident.
-type PublicChrome struct {
+// The property this buys: **adding a field to Settings does not widen the
+// guest read.** A new column reaches a guest only if somebody adds it here
+// too, which is a deliberate line in a diff rather than a silent consequence
+// of a migration. TestPublicSettingsFieldsAreDeliberate fails when the two
+// types drift, so the decision cannot be skipped by accident.
+type PublicSettings struct {
 	Slug         string `json:"slug"`
 	DisplayName  string `json:"display_name"`
 	PrimaryColor string `json:"primary_color"`
@@ -47,14 +47,14 @@ type PublicChrome struct {
 // Written as an explicit field list rather than by embedding or copying the
 // struct, because the whole point is that a field has to be named here to
 // cross the fence.
-func (c Chrome) Public() PublicChrome {
-	return PublicChrome{
-		Slug:                  c.Slug,
-		DisplayName:           c.DisplayName,
-		PrimaryColor:          c.PrimaryColor,
-		AccentColor:           c.AccentColor,
-		LogoURL:               c.LogoURL,
-		SupportEmail:          c.SupportEmail,
-		DefaultDiallingRegion: c.DefaultDiallingRegion,
+func (s Settings) Public() PublicSettings {
+	return PublicSettings{
+		Slug:                  s.Slug,
+		DisplayName:           s.DisplayName,
+		PrimaryColor:          s.PrimaryColor,
+		AccentColor:           s.AccentColor,
+		LogoURL:               s.LogoURL,
+		SupportEmail:          s.SupportEmail,
+		DefaultDiallingRegion: s.DefaultDiallingRegion,
 	}
 }

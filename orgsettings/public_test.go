@@ -1,4 +1,4 @@
-package orgchrome
+package orgsettings
 
 import (
 	"encoding/json"
@@ -43,34 +43,34 @@ func jsonNames(t *testing.T, v any) []string {
 	return out
 }
 
-// TestPublicChromeFieldsAreDeliberate pins the guest projection to an explicit
-// list. It fails when somebody adds a field to PublicChrome without adding it
-// here — which is the moment a reviewer should be asked whether a guest may
-// read that column.
-func TestPublicChromeFieldsAreDeliberate(t *testing.T) {
+// TestPublicSettingsFieldsAreDeliberate pins the guest projection to an
+// explicit list. It fails when somebody adds a field to PublicSettings
+// without adding it here — which is the moment a reviewer should be asked
+// whether a guest may read that column.
+func TestPublicSettingsFieldsAreDeliberate(t *testing.T) {
 	want := append([]string(nil), publicFields...)
 	sort.Strings(want)
-	got := jsonNames(t, PublicChrome{})
+	got := jsonNames(t, PublicSettings{})
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("the guest projection changed.\n got: %v\nwant: %v\n\nIf this is intended, add the column to publicFields and say in the diff why an unauthenticated reader may see it.", got, want)
 	}
 }
 
-// TestANewChromeColumnDoesNotReachGuestsByDefault is the property DEV-1284 was
-// filed for, and it is the one that actually protects anything.
+// TestANewSettingsColumnDoesNotReachGuestsByDefault is the property DEV-1284
+// was filed for, and it is the one that actually protects anything.
 //
-// Before the split, `GET /v1/org-chrome/{slug}` returned the whole row, so a
-// migration adding `paybill` would have served it to unauthenticated readers
-// with no code change and no review. This test asserts the two types are
-// allowed to differ, and that Chrome having a field PublicChrome lacks is the
-// normal, safe state rather than a bug.
+// Before the split, `GET /v1/org-settings/{slug}` returned the whole row, so
+// a migration adding `paybill` would have served it to unauthenticated
+// readers with no code change and no review. This test asserts the two types
+// are allowed to differ, and that Settings having a field PublicSettings
+// lacks is the normal, safe state rather than a bug.
 //
 // It is written as a positive assertion about the *mechanism* — the projection
 // is an explicit field list — because a test that merely compared the two
 // types would have to be deleted the first time they legitimately diverged,
 // which is exactly when the fence starts mattering.
-func TestANewChromeColumnDoesNotReachGuestsByDefault(t *testing.T) {
-	full := Chrome{
+func TestANewSettingsColumnDoesNotReachGuestsByDefault(t *testing.T) {
+	full := Settings{
 		Slug:                  "acme",
 		DisplayName:           "Acme",
 		PrimaryColor:          "#111",
@@ -113,12 +113,12 @@ func TestANewChromeColumnDoesNotReachGuestsByDefault(t *testing.T) {
 // the right shape with the wrong contents — a copy-paste slip in an explicit
 // field list is easy and silent.
 func TestPublicProjectionCarriesTheValues(t *testing.T) {
-	in := Chrome{
+	in := Settings{
 		Slug: "s", DisplayName: "d", PrimaryColor: "p", AccentColor: "a",
 		LogoURL: "l", SupportEmail: "e", DefaultDiallingRegion: "KE",
 	}
 	got := in.Public()
-	want := PublicChrome{
+	want := PublicSettings{
 		Slug: "s", DisplayName: "d", PrimaryColor: "p", AccentColor: "a",
 		LogoURL: "l", SupportEmail: "e", DefaultDiallingRegion: "KE",
 	}

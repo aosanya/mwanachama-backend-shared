@@ -1,4 +1,4 @@
-package orgchrome
+package orgsettings
 
 import (
 	"context"
@@ -13,13 +13,13 @@ import (
 // point. The indexer is entitled to a two-letter region code and to nothing
 // else on this record; a direct dependency would hand it the support email
 // and the logo URL as well, and would tie the phone-salt domain to a
-// branding lookup it has no business knowing about.
+// settings lookup it has no business knowing about.
 type DefaultRegion struct {
 	repo Repository
 	slug string
 }
 
-// NewDefaultRegion binds the adapter to one organization's chrome record.
+// NewDefaultRegion binds the adapter to one organization's settings record.
 //
 // The slug is fixed at construction rather than passed per call because the
 // gateway's phone-salt domain is already single-organization — Repository.Hash
@@ -34,19 +34,19 @@ func NewDefaultRegion(repo Repository, slug string) *DefaultRegion {
 // DefaultDiallingRegion returns the configured region, or the empty string
 // when nobody has set one.
 //
-// A missing chrome record reads as unset rather than as an error: an
+// A missing settings record reads as unset rather than as an error: an
 // organization that has not been branded yet has certainly not chosen a
 // dialling region either, and both states mean the same thing to the caller —
 // there is no region, so nothing may be canonicalized. The refusal is the
 // indexer's (phonesalt.ErrNoDiallingRegion), where it can say what the caller
 // was trying to do.
 func (d *DefaultRegion) DefaultDiallingRegion(ctx context.Context) (string, error) {
-	c, err := d.repo.Get(ctx, d.slug)
+	s, err := d.repo.Get(ctx, d.slug)
 	if errors.Is(err, ErrNotFound) {
 		return "", nil
 	}
 	if err != nil {
 		return "", err
 	}
-	return c.DefaultDiallingRegion, nil
+	return s.DefaultDiallingRegion, nil
 }

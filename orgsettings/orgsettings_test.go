@@ -1,4 +1,4 @@
-package orgchrome
+package orgsettings
 
 import (
 	"encoding/json"
@@ -8,9 +8,9 @@ import (
 // LogoURL and SupportEmail are optional — an org that hasn't set a logo or
 // support address yet must not send empty-string keys the client shell
 // would render as a broken image / mailto link.
-func TestChromeOptionalFieldsOmittedWhenEmpty(t *testing.T) {
-	c := Chrome{Slug: "org1", DisplayName: "Org One", PrimaryColor: "#123456", AccentColor: "#abcdef"}
-	b, err := json.Marshal(c)
+func TestSettingsOptionalFieldsOmittedWhenEmpty(t *testing.T) {
+	s := Settings{Slug: "org1", DisplayName: "Org One", PrimaryColor: "#123456", AccentColor: "#abcdef"}
+	b, err := json.Marshal(s)
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
 	}
@@ -25,13 +25,13 @@ func TestChromeOptionalFieldsOmittedWhenEmpty(t *testing.T) {
 	}
 	for _, key := range []string{"slug", "display_name", "primary_color", "accent_color"} {
 		if _, ok := got[key]; !ok {
-			t.Errorf("Chrome missing required key %q: %s", key, b)
+			t.Errorf("Settings missing required key %q: %s", key, b)
 		}
 	}
 }
 
-func TestChromeOptionalFieldsPresentWhenSet(t *testing.T) {
-	c := Chrome{
+func TestSettingsOptionalFieldsPresentWhenSet(t *testing.T) {
+	s := Settings{
 		Slug:         "org1",
 		DisplayName:  "Org One",
 		PrimaryColor: "#123456",
@@ -39,15 +39,15 @@ func TestChromeOptionalFieldsPresentWhenSet(t *testing.T) {
 		LogoURL:      "https://example.org/logo.png",
 		SupportEmail: "support@example.org",
 	}
-	b, err := json.Marshal(c)
+	b, err := json.Marshal(s)
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
 	}
-	var got Chrome
+	var got Settings
 	if err := json.Unmarshal(b, &got); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	if got != c {
-		t.Errorf("round-trip = %+v, want %+v", got, c)
+	if got != s {
+		t.Errorf("round-trip = %+v, want %+v", got, s)
 	}
 }

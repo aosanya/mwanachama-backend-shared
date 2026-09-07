@@ -1,4 +1,4 @@
-package orgchrome_test
+package orgsettings_test
 
 import (
 	"context"
@@ -6,11 +6,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aosanya/mwanachama-backend-shared/orgchrome"
+	"github.com/aosanya/mwanachama-backend-shared/orgsettings"
 	"github.com/aosanya/mwanachama-backend-shared/postgres"
 )
 
-// liveDB opens a real Postgres connection and ensures the org_chrome table
+// liveDB opens a real Postgres connection and ensures the org_settings table
 // exists, skipping the test when POSTGRES_URL is unset — mirroring
 // postgres/backend_test.go's TestBackend_Conformance so `go test ./...` needs
 // no docker daemon by default (see Makefile's test-pg target).
@@ -26,7 +26,7 @@ func liveDB(t *testing.T) *sql.DB {
 		t.Fatalf("Open: %v", err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	if err := orgchrome.Migrate(ctx, db); err != nil {
+	if err := orgsettings.Migrate(ctx, db); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
 	return db
@@ -35,17 +35,17 @@ func liveDB(t *testing.T) *sql.DB {
 func cleanupSlug(t *testing.T, db *sql.DB, slug string) {
 	t.Helper()
 	t.Cleanup(func() {
-		_, _ = db.ExecContext(context.Background(), `DELETE FROM org_chrome WHERE slug = $1`, slug)
+		_, _ = db.ExecContext(context.Background(), `DELETE FROM org_settings WHERE slug = $1`, slug)
 	})
 }
 
-func TestOrgChromeRoundTrip(t *testing.T) {
+func TestOrgSettingsRoundTrip(t *testing.T) {
 	db := liveDB(t)
-	s := orgchrome.NewStore(db)
+	s := orgsettings.NewStore(db)
 	ctx := context.Background()
 	cleanupSlug(t, db, "acme")
 
-	in := orgchrome.Chrome{
+	in := orgsettings.Settings{
 		Slug: "acme", DisplayName: "Acme", PrimaryColor: "#111",
 		AccentColor: "#222", LogoURL: "l", SupportEmail: "s@a",
 	}
@@ -58,8 +58,9 @@ func TestOrgChromeRoundTrip(t *testing.T) {
 	}
 }
 
-// TestOrgChromeDiallingRegionRoundTrip is DEV-1258's half of G366: the region
-// the canonicalizer parses against is useless if the store cannot carry it.
+// TestOrgSettingsDiallingRegionRoundTrip is DEV-1258's half of G366: the
+// region the canonicalizer parses against is useless if the store cannot
+// carry it.
 //
 // It asserts three separate things, because the column has three states and
 // two of them are easy to get wrong:
@@ -72,15 +73,15 @@ func TestOrgChromeRoundTrip(t *testing.T) {
 //  3. The CHECK refuses a malformed code through the store, not merely
 //     through psql. A guard that only holds when you write SQL by hand is
 //     one call site away from being bypassed.
-func TestOrgChromeDiallingRegionRoundTrip(t *testing.T) {
+func TestOrgSettingsDiallingRegionRoundTrip(t *testing.T) {
 	db := liveDB(t)
-	s := orgchrome.NewStore(db)
+	s := orgsettings.NewStore(db)
 	ctx := context.Background()
 	cleanupSlug(t, db, "withregion")
 	cleanupSlug(t, db, "noregion")
 	cleanupSlug(t, db, "badregion")
 
-	set, err := s.Put(ctx, orgchrome.Chrome{Slug: "withregion", DefaultDiallingRegion: "KE"})
+	set, err := s.Put(ctx, orgsettings.Settings{Slug: "withregion", DefaultDiallingRegion: "KE"})
 	if err != nil {
 		t.Fatalf("Put with region: %v", err)
 	}
@@ -95,7 +96,7 @@ func TestOrgChromeDiallingRegionRoundTrip(t *testing.T) {
 		t.Errorf("Get returned region %q, want %q", got.DefaultDiallingRegion, "KE")
 	}
 
-	if _, err := s.Put(ctx, orgchrome.Chrome{Slug: "noregion"}); err != nil {
+	if _, err := s.Put(ctx, orgsettings.Settings{Slug: "noregion"}); err != nil {
 		t.Fatalf("Put without region: %v", err)
 	}
 	unset, err := s.Get(ctx, "noregion")
@@ -106,9 +107,9 @@ func TestOrgChromeDiallingRegionRoundTrip(t *testing.T) {
 		t.Errorf("unset region came back as %q, want empty", unset.DefaultDiallingRegion)
 	}
 
-	if _, err := s.Put(ctx, orgchrome.Chrome{Slug: "badregion", DefaultDiallingRegion: "ke"}); err == nil {
+	if _, err := s.Put(ctx, orgsettings.Settings{Slug: "badregion", DefaultDiallingRegion: "ke"}); err == nil {
 		t.Error("Put accepted lowercase region \"ke\"; the CHECK should refuse it")
-	} else if err != orgchrome.ErrInvalidDiallingRegion {
+	} else if err != orgsettings.ErrInvalidDiallingRegion {
 		t.Errorf("Put with bad region returned %v, want ErrInvalidDiallingRegion", err)
 	}
 }
