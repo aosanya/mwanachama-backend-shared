@@ -20,18 +20,39 @@ import (
 var ErrNotFound = errors.New("orgsettings: not found")
 
 // ErrInvalidSettings is returned when Put's Attributes fails
-// models.ValidateAttributes against models.DefaultOrgSettingsProperties —
-// the caller's mistake, not a server fault. Mirrors
-// mwanachama-backend-actor's ErrInvalidActor exactly: a generic
-// write-was-invalid sentinel wrapping the specific field.Errorf detail,
-// kept local to this package rather than routed through the gateway's
-// cross-domain domerr.ErrInvalidReference sentinel, since domerr hasn't
-// moved to this repo (a separate, not-yet-done pass); callers that want a
-// domerr-shaped error can wrap this themselves.
+// [ValidateAttributes] against [DefaultOrgSettingsProperties] — the
+// caller's mistake, not a server fault. Mirrors mwanachama-backend-actor's
+// ErrInvalidActor exactly: a generic write-was-invalid sentinel wrapping
+// the specific field.Errorf detail, kept local to this package rather than
+// routed through the gateway's cross-domain domerr.ErrInvalidReference
+// sentinel, since domerr hasn't moved to this repo (a separate, not-yet-done
+// pass); callers that want a domerr-shaped error can wrap this themselves.
 var ErrInvalidSettings = errors.New("orgsettings: invalid settings")
+
+// Settings, PublicSettings and Property are aliases of their models.
+// counterparts, and DefaultOrgSettingsProperties/ValidateAttributes forward
+// to the models. functions of the same name — so a caller needs only this
+// package's import, never models's directly.
+type (
+	Settings       = models.Settings
+	PublicSettings = models.PublicSettings
+	Property       = models.Property
+)
+
+// DefaultOrgSettingsProperties returns the built-in property catalog. See
+// [models.DefaultOrgSettingsProperties].
+func DefaultOrgSettingsProperties() []Property {
+	return models.DefaultOrgSettingsProperties()
+}
+
+// ValidateAttributes checks attrs against properties. See
+// [models.ValidateAttributes].
+func ValidateAttributes(properties []Property, attrs map[string]any) error {
+	return models.ValidateAttributes(properties, attrs)
+}
 
 // Repository is the persistence boundary for the org-settings domain.
 type Repository interface {
-	Get(ctx context.Context, slug string) (models.Settings, error)
-	Put(ctx context.Context, s models.Settings) (models.Settings, error)
+	Get(ctx context.Context, slug string) (Settings, error)
+	Put(ctx context.Context, s Settings) (Settings, error)
 }

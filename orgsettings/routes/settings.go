@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/aosanya/mwanachama-backend-shared/orgsettings"
-	"github.com/aosanya/mwanachama-backend-shared/orgsettings/models"
 )
 
 // GetOrgSettings handles GET /{slug}.
@@ -15,7 +14,7 @@ import (
 // DEV-1284 · This route carries **no session at all** — a guest home and a
 // sign-in screen have to render the organization's mark before anybody has
 // authenticated. So what it returns is the guest projection
-// (models.PublicSettings), never the stored row.
+// (orgsettings.PublicSettings), never the stored row.
 func GetOrgSettings(repo orgsettings.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		out, err := repo.Get(r.Context(), r.PathValue("slug"))
@@ -48,7 +47,7 @@ func GetOwnOrgSettings(repo orgsettings.Repository, ownSlug string) http.Handler
 // to add.
 func PutOrgSettings(repo orgsettings.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var in models.Settings
+		var in orgsettings.Settings
 		if err := readJSON(r, &in); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return

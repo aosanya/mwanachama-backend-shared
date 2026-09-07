@@ -22,7 +22,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/aosanya/mwanachama-backend-shared/orgsettings"
-	"github.com/aosanya/mwanachama-backend-shared/orgsettings/models"
 	"github.com/aosanya/mwanachama-backend-shared/postgres"
 )
 
@@ -77,7 +76,7 @@ func TestOrgSettingsRoundTripLive(t *testing.T) {
 	ctx := context.Background()
 	cleanupSlug(t, db, "org_settings", "acme")
 
-	in := models.Settings{
+	in := orgsettings.Settings{
 		Slug: "acme",
 		Attributes: map[string]any{
 			"display_name":            "Acme",
@@ -102,7 +101,7 @@ func TestOrgSettingsRoundTripLive(t *testing.T) {
 	// Put upserts — the ON CONFLICT path, against real Postgres rather than
 	// sqlite's dialect (store_impl_test.go already covers this on sqlite;
 	// this confirms the same clause.OnConflict SQL is valid Postgres).
-	if _, err := s.Put(ctx, models.Settings{
+	if _, err := s.Put(ctx, orgsettings.Settings{
 		Slug:       "acme",
 		Attributes: map[string]any{"display_name": "Acme Movement"},
 	}); err != nil {

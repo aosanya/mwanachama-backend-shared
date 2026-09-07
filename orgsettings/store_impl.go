@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/aosanya/mwanachama-backend-shared/orgsettings/gormstore"
-	"github.com/aosanya/mwanachama-backend-shared/orgsettings/models"
 )
 
 // Store is the concrete implementation of [Repository].
@@ -34,29 +33,29 @@ func NewStore(db *gorm.DB, t TableNames) (*Store, error) {
 
 // Get returns the settings record for slug, or [ErrNotFound] when there is
 // no row.
-func (s *Store) Get(ctx context.Context, slug string) (models.Settings, error) {
+func (s *Store) Get(ctx context.Context, slug string) (Settings, error) {
 	var row gormstore.SettingsRow
 	err := s.db.WithContext(ctx).Table(s.tables.OrgSettings).Where("slug = ?", slug).First(&row).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return models.Settings{}, ErrNotFound
+			return Settings{}, ErrNotFound
 		}
-		return models.Settings{}, fmt.Errorf("Get: %w", err)
+		return Settings{}, fmt.Errorf("Get: %w", err)
 	}
 	return gormstore.SettingsFromRow(row), nil
 }
 
 // Put upserts a settings record by slug and returns the persisted value.
-// Attributes is validated against [models.DefaultOrgSettingsProperties]
-// first — a value of the wrong Range fails the call before any row is
-// written, mirroring mwanachama-backend-actor's CreateActor.
+// Attributes is validated against [DefaultOrgSettingsProperties] first — a
+// value of the wrong Range fails the call before any row is written,
+// mirroring mwanachama-backend-actor's CreateActor.
 //
 // Uses an explicit ON CONFLICT clause rather than GORM's Save — Save treats
 // a non-empty primary key as "do an UPDATE", which would silently affect
 // zero rows on the very first Put for a slug instead of inserting one.
-func (s *Store) Put(ctx context.Context, in models.Settings) (models.Settings, error) {
-	if err := models.ValidateAttributes(models.DefaultOrgSettingsProperties(), in.Attributes); err != nil {
-		return models.Settings{}, fmt.Errorf("%w: %v", ErrInvalidSettings, err)
+func (s *Store) Put(ctx context.Context, in Settings) (Settings, error) {
+	if err := ValidateAttributes(DefaultOrgSettingsProperties(), in.Attributes); err != nil {
+		return Settings{}, fmt.Errorf("%w: %v", ErrInvalidSettings, err)
 	}
 	row := gormstore.SettingsToRow(in)
 	err := s.db.WithContext(ctx).Table(s.tables.OrgSettings).
@@ -66,7 +65,7 @@ func (s *Store) Put(ctx context.Context, in models.Settings) (models.Settings, e
 		}).
 		Create(&row).Error
 	if err != nil {
-		return models.Settings{}, fmt.Errorf("Put: %w", err)
+		return Settings{}, fmt.Errorf("Put: %w", err)
 	}
 	return gormstore.SettingsFromRow(row), nil
 }

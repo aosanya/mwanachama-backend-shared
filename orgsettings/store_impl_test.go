@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/aosanya/mwanachama-backend-shared/orgsettings"
-	"github.com/aosanya/mwanachama-backend-shared/orgsettings/models"
 )
 
 func TestStoreGetUnknownSlugReturnsErrNotFound(t *testing.T) {
@@ -20,7 +19,7 @@ func TestStorePutThenGetRoundTrips(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
-	first := models.Settings{
+	first := orgsettings.Settings{
 		Slug: "mwanachama",
 		Attributes: map[string]any{
 			"display_name":  "Mwanachama",
@@ -43,7 +42,7 @@ func TestStorePutThenGetRoundTrips(t *testing.T) {
 	// the very first insert (the ON CONFLICT path — regression coverage for
 	// the "GORM Save silently no-ops on a fresh slug" bug this store
 	// deliberately avoids by using an explicit clause.OnConflict).
-	updated := models.Settings{
+	updated := orgsettings.Settings{
 		Slug: "mwanachama",
 		Attributes: map[string]any{
 			"display_name":  "Mwanachama Movement",
@@ -71,7 +70,7 @@ func TestStorePutRejectsInvalidAttribute(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
-	_, err := s.Put(ctx, models.Settings{
+	_, err := s.Put(ctx, orgsettings.Settings{
 		Slug:       "badregion",
 		Attributes: map[string]any{"default_dialling_region": 254},
 	})
