@@ -34,13 +34,36 @@ var ErrNoSuchMember = errors.New("orgpolicy: no such member")
 // orgsettings.ErrInvalidSettings's shape.
 var ErrBadCap = errors.New("orgpolicy: cap is not settable to that")
 
-// Policy and Effective are aliases of their models. counterparts, so a
-// caller needs only this package's import, never models's directly —
-// mirrors orgsettings's identical convenience aliases.
+// Policy is an alias of its models. counterpart, and the functions below
+// forward to their models. namesakes, so a caller needs only this package's
+// import, never models's directly — mirrors orgsettings's identical
+// convenience aliases.
 type Policy = models.Policy
 
 // Effective forwards to [models.Effective].
 func Effective(orgCap int, override *int) int { return models.Effective(orgCap, override) }
+
+// ValidateCap forwards to [models.ValidateCap].
+func ValidateCap(n int) error { return models.ValidateCap(n) }
+
+// ValidateOverride forwards to [models.ValidateOverride].
+func ValidateOverride(n, orgCap int) error { return models.ValidateOverride(n, orgCap) }
+
+// ValidateMembershipCap forwards to [models.ValidateMembershipCap].
+func ValidateMembershipCap(n int) error { return models.ValidateMembershipCap(n) }
+
+// ValidateFreeTextMaxLengthCap forwards to [models.ValidateFreeTextMaxLengthCap].
+func ValidateFreeTextMaxLengthCap(n int) error { return models.ValidateFreeTextMaxLengthCap(n) }
+
+// ValidateMaxLength forwards to [models.ValidateMaxLength].
+func ValidateMaxLength(n, capValue int) error { return models.ValidateMaxLength(n, capValue) }
+
+// Default* forward to their models. namesakes.
+const (
+	DefaultPublicAddressCap     = models.DefaultPublicAddressCap
+	DefaultChapterMembershipCap = models.DefaultChapterMembershipCap
+	DefaultFreeTextMaxLengthCap = models.DefaultFreeTextMaxLengthCap
+)
 
 // MemberExists is the one thing this package needs from the member domain:
 // whether an individual cap names anybody. Kept as a function rather than a
