@@ -25,9 +25,9 @@ var ErrInvalidDiallingRegion = errors.New(
 // schema creates the org_settings table if it doesn't already exist — the
 // same self-healing idiom every mwanachamaX.Migrate(db, ...) call in the
 // gateway's stores.go already follows, ported from
-// mwanachama-backend-api-gateway's own migrations_archive/000001_orgchrome.up.sql
-// and migrations_archive/000023_org_dialling_region.up.sql (DEV-1258), then
-// renamed org_chrome -> org_settings (DEV-1683 follow-up).
+// mwanachama-backend-api-gateway's own migrations_archive/000001_orgsettings.up.sql
+// (originally 000001_orgchrome.up.sql, org_chrome -> org_settings) and
+// migrations_archive/000023_org_dialling_region.up.sql (DEV-1258).
 //
 // default_dialling_region carries a real CHECK, not just a Go-level guard:
 // ISO-3166-1 alpha-2 uppercase or empty. Per G366/DSN-1479 (2026-08-22), a

@@ -12,10 +12,11 @@ package orgsettings
 //
 // Until this type existed the handler returned the whole `Settings` row, and
 // nothing leaked only because of which columns happened to exist. That is an
-// accident of coverage, not a rule being honoured — RLS on the retiring
-// Supabase party plane kept `paybill` and `statement_format` behind the
-// session; this plane has no RLS by design (authorization is Go, beside the
-// handler), so the fence has to be a Go instrument or it is nothing.
+// accident of coverage, not a rule being honoured — RLS on the retired
+// Supabase party plane (gone now; DSN-1349) kept `paybill` and
+// `statement_format` behind the session; this plane has no RLS by design
+// (authorization is Go, beside the handler), so the fence has to be a Go
+// instrument or it is nothing.
 //
 // The property this buys: **adding a field to Settings does not widen the
 // guest read.** A new column reaches a guest only if somebody adds it here
