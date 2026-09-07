@@ -48,5 +48,5 @@ func (d *DefaultRegion) DefaultDiallingRegion(ctx context.Context) (string, erro
 	if err != nil {
 		return "", err
 	}
-	return s.DefaultDiallingRegion, nil
+	return s.DefaultDiallingRegion(), nil
 }

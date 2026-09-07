@@ -18,11 +18,13 @@ package models
 // (authorization is Go, beside the handler), so the fence has to be a Go
 // instrument or it is nothing.
 //
-// The property this buys: **adding a field to Settings does not widen the
-// guest read.** A new column reaches a guest only if somebody adds it here
-// too, which is a deliberate line in a diff rather than a silent consequence
-// of a migration. TestPublicSettingsFieldsAreDeliberate fails when the two
-// types drift, so the decision cannot be skipped by accident.
+// The property this buys: **declaring a new attribute on Settings does not
+// widen the guest read.** PublicSettings carries no `Attributes` field at
+// all, only named fields each read out of the bag by an explicit accessor
+// (Settings.DisplayName(), etc.) — so a new entry in
+// DefaultOrgSettingsProperties reaches a guest only if somebody both reads
+// it here AND names it in this struct, which is a deliberate line in a diff
+// rather than a silent consequence of a new declared property.
 type PublicSettings struct {
 	Slug         string `json:"slug"`
 	DisplayName  string `json:"display_name"`
@@ -51,11 +53,11 @@ type PublicSettings struct {
 func (s Settings) Public() PublicSettings {
 	return PublicSettings{
 		Slug:                  s.Slug,
-		DisplayName:           s.DisplayName,
-		PrimaryColor:          s.PrimaryColor,
-		AccentColor:           s.AccentColor,
-		LogoURL:               s.LogoURL,
-		SupportEmail:          s.SupportEmail,
-		DefaultDiallingRegion: s.DefaultDiallingRegion,
+		DisplayName:           s.DisplayName(),
+		PrimaryColor:          s.PrimaryColor(),
+		AccentColor:           s.AccentColor(),
+		LogoURL:               s.LogoURL(),
+		SupportEmail:          s.SupportEmail(),
+		DefaultDiallingRegion: s.DefaultDiallingRegion(),
 	}
 }

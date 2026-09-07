@@ -19,14 +19,16 @@ import (
 // ErrNotFound is returned when no settings record exists for a slug.
 var ErrNotFound = errors.New("orgsettings: not found")
 
-// ErrInvalidDiallingRegion is returned when Put's default_dialling_region
-// fails its CHECK — the caller's mistake, not a server fault. Kept local to
-// this package rather than routed through the gateway's cross-domain
-// domerr.ErrInvalidReference sentinel, since domerr hasn't moved to this
-// repo (a separate, not-yet-done pass); callers that want a domerr-shaped
-// error can wrap this themselves.
-var ErrInvalidDiallingRegion = errors.New(
-	"orgsettings: default_dialling_region must be an ISO-3166-1 alpha-2 code or empty")
+// ErrInvalidSettings is returned when Put's Attributes fails
+// models.ValidateAttributes against models.DefaultOrgSettingsProperties —
+// the caller's mistake, not a server fault. Mirrors
+// mwanachama-backend-actor's ErrInvalidActor exactly: a generic
+// write-was-invalid sentinel wrapping the specific field.Errorf detail,
+// kept local to this package rather than routed through the gateway's
+// cross-domain domerr.ErrInvalidReference sentinel, since domerr hasn't
+// moved to this repo (a separate, not-yet-done pass); callers that want a
+// domerr-shaped error can wrap this themselves.
+var ErrInvalidSettings = errors.New("orgsettings: invalid settings")
 
 // Repository is the persistence boundary for the org-settings domain.
 type Repository interface {

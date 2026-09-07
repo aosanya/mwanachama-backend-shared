@@ -61,9 +61,10 @@ func TestPublicSettingsFieldsAreDeliberate(t *testing.T) {
 //
 // Before the split, `GET /v1/org-settings/{slug}` returned the whole row, so
 // a migration adding `paybill` would have served it to unauthenticated
-// readers with no code change and no review. This test asserts the two types
-// are allowed to differ, and that Settings having a field PublicSettings
-// lacks is the normal, safe state rather than a bug.
+// readers with no code change and no review. This test asserts the two
+// types are allowed to differ, and that Settings having a field
+// PublicSettings lacks (including the whole Attributes bag) is the normal,
+// safe state rather than a bug.
 //
 // It is written as a positive assertion about the *mechanism* — the projection
 // is an explicit field list — because a test that merely compared the two
@@ -77,7 +78,7 @@ func TestANewSettingsColumnDoesNotReachGuestsByDefault(t *testing.T) {
 		AccentColor:           "#222",
 		LogoURL:               "l",
 		SupportEmail:          "s@a",
-		DefaultDiallingRegion: "KE",
+		Attributes:            map[string]any{"default_dialling_region": "KE", "paybill": "12345"},
 	}
 
 	blob, err := json.Marshal(full.Public())
@@ -98,6 +99,12 @@ func TestANewSettingsColumnDoesNotReachGuestsByDefault(t *testing.T) {
 			t.Errorf("the guest read served %q, which is not on the fence", k)
 		}
 	}
+	if _, ok := served["attributes"]; ok {
+		t.Error("the guest read served the whole attributes bag, which is not on the fence")
+	}
+	if _, ok := served["paybill"]; ok {
+		t.Error("the guest read served an attribute by name, which is not on the fence")
+	}
 
 	// Every allowed field that was set must actually survive the projection —
 	// a fence that dropped a column the screens need would be caught here
@@ -115,7 +122,8 @@ func TestANewSettingsColumnDoesNotReachGuestsByDefault(t *testing.T) {
 func TestPublicProjectionCarriesTheValues(t *testing.T) {
 	in := Settings{
 		Slug: "s", DisplayName: "d", PrimaryColor: "p", AccentColor: "a",
-		LogoURL: "l", SupportEmail: "e", DefaultDiallingRegion: "KE",
+		LogoURL: "l", SupportEmail: "e",
+		Attributes: map[string]any{"default_dialling_region": "KE"},
 	}
 	got := in.Public()
 	want := PublicSettings{
