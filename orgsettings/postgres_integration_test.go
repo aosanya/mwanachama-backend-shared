@@ -3,10 +3,14 @@
 // rest of this package's tests use.
 //
 // Skipped unless POSTGRES_URL is set. The unit tests elsewhere in this
-// package already exhaustively cover Get/Put's business logic; this file's
-// job is narrower — prove the real Postgres wiring (GORM AutoMigrate, the
-// ON CONFLICT upsert, and the dialling-region CHECK, which sqlite cannot
-// enforce) works end-to-end.
+// package already exhaustively cover Get/Put's business logic — including
+// ErrInvalidSettings, which is Go-level only now (DEV-1683 follow-up moved
+// default_dialling_region off a dedicated column with a database CHECK and
+// into Attributes, matching mwanachama-backend-actor's phone/email, so
+// there is no longer a Postgres-only guarantee to exercise here). This
+// file's job is narrower — prove the real Postgres wiring (GORM
+// AutoMigrate, the JSONB Attributes round-trip, and the ON CONFLICT upsert)
+// works end-to-end.
 package orgsettings_test
 
 import (
@@ -74,69 +78,41 @@ func TestOrgSettingsRoundTripLive(t *testing.T) {
 	cleanupSlug(t, db, "org_settings", "acme")
 
 	in := models.Settings{
-		Slug: "acme", DisplayName: "Acme", PrimaryColor: "#111",
-		AccentColor: "#222", LogoURL: "l", SupportEmail: "s@a",
+		Slug: "acme",
+		Attributes: map[string]any{
+			"display_name":            "Acme",
+			"primary_color":           "#111",
+			"accent_color":            "#222",
+			"logo_url":                "l",
+			"support_email":           "s@a",
+			"default_dialling_region": "KE",
+		},
 	}
 	if _, err := s.Put(ctx, in); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
 	got, err := s.Get(ctx, "acme")
-	if err != nil || got.DisplayName != "Acme" {
-		t.Fatalf("Get: %v %+v", err, got)
-	}
-}
-
-// TestOrgSettingsDiallingRegionRoundTripLive is DEV-1258's half of G366: the
-// region the canonicalizer parses against is useless if the store cannot
-// carry it.
-//
-// It asserts three separate things, because the column has three states and
-// two of them are easy to get wrong:
-//
-//  1. A set region survives a Put/Get round trip.
-//  2. An unset one comes back as the empty string rather than an error or a
-//     guessed country — phone-salt.md's accepted trade-off is that a wrong
-//     region is unrecoverable, so "nobody has set one" has to be
-//     representable and distinguishable.
-//  3. The CHECK refuses a malformed code through the store, not merely
-//     through psql. A guard that only holds when you write SQL by hand is
-//     one call site away from being bypassed.
-func TestOrgSettingsDiallingRegionRoundTripLive(t *testing.T) {
-	s, db := newPostgresStore(t)
-	ctx := context.Background()
-	cleanupSlug(t, db, "org_settings", "withregion")
-	cleanupSlug(t, db, "org_settings", "noregion")
-	cleanupSlug(t, db, "org_settings", "badregion")
-
-	set, err := s.Put(ctx, models.Settings{Slug: "withregion", DefaultDiallingRegion: "KE"})
 	if err != nil {
-		t.Fatalf("Put with region: %v", err)
+		t.Fatalf("Get: %v", err)
 	}
-	if set.DefaultDiallingRegion != "KE" {
-		t.Errorf("Put returned region %q, want %q", set.DefaultDiallingRegion, "KE")
-	}
-	got, err := s.Get(ctx, "withregion")
-	if err != nil {
-		t.Fatalf("Get with region: %v", err)
-	}
-	if got.DefaultDiallingRegion != "KE" {
-		t.Errorf("Get returned region %q, want %q", got.DefaultDiallingRegion, "KE")
+	if got.DisplayName() != "Acme" || got.DefaultDiallingRegion() != "KE" {
+		t.Fatalf("JSONB round-trip lost fields: %+v", got)
 	}
 
-	if _, err := s.Put(ctx, models.Settings{Slug: "noregion"}); err != nil {
-		t.Fatalf("Put without region: %v", err)
+	// Put upserts — the ON CONFLICT path, against real Postgres rather than
+	// sqlite's dialect (store_impl_test.go already covers this on sqlite;
+	// this confirms the same clause.OnConflict SQL is valid Postgres).
+	if _, err := s.Put(ctx, models.Settings{
+		Slug:       "acme",
+		Attributes: map[string]any{"display_name": "Acme Movement"},
+	}); err != nil {
+		t.Fatalf("upsert: %v", err)
 	}
-	unset, err := s.Get(ctx, "noregion")
+	got, err = s.Get(ctx, "acme")
 	if err != nil {
-		t.Fatalf("Get without region: %v", err)
+		t.Fatalf("Get after upsert: %v", err)
 	}
-	if unset.DefaultDiallingRegion != "" {
-		t.Errorf("unset region came back as %q, want empty", unset.DefaultDiallingRegion)
-	}
-
-	if _, err := s.Put(ctx, models.Settings{Slug: "badregion", DefaultDiallingRegion: "ke"}); err == nil {
-		t.Error("Put accepted lowercase region \"ke\"; the CHECK should refuse it")
-	} else if err != orgsettings.ErrInvalidDiallingRegion {
-		t.Errorf("Put with bad region returned %v, want ErrInvalidDiallingRegion", err)
+	if got.DisplayName() != "Acme Movement" {
+		t.Fatalf("expected upsert to replace display_name, got %+v", got)
 	}
 }

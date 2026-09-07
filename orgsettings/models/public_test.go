@@ -72,13 +72,16 @@ func TestPublicSettingsFieldsAreDeliberate(t *testing.T) {
 // which is exactly when the fence starts mattering.
 func TestANewSettingsColumnDoesNotReachGuestsByDefault(t *testing.T) {
 	full := Settings{
-		Slug:                  "acme",
-		DisplayName:           "Acme",
-		PrimaryColor:          "#111",
-		AccentColor:           "#222",
-		LogoURL:               "l",
-		SupportEmail:          "s@a",
-		Attributes:            map[string]any{"default_dialling_region": "KE", "paybill": "12345"},
+		Slug: "acme",
+		Attributes: map[string]any{
+			"display_name":            "Acme",
+			"primary_color":           "#111",
+			"accent_color":            "#222",
+			"logo_url":                "l",
+			"support_email":           "s@a",
+			"default_dialling_region": "KE",
+			"paybill":                 "12345",
+		},
 	}
 
 	blob, err := json.Marshal(full.Public())
@@ -121,9 +124,11 @@ func TestANewSettingsColumnDoesNotReachGuestsByDefault(t *testing.T) {
 // field list is easy and silent.
 func TestPublicProjectionCarriesTheValues(t *testing.T) {
 	in := Settings{
-		Slug: "s", DisplayName: "d", PrimaryColor: "p", AccentColor: "a",
-		LogoURL: "l", SupportEmail: "e",
-		Attributes: map[string]any{"default_dialling_region": "KE"},
+		Slug: "s",
+		Attributes: map[string]any{
+			"display_name": "d", "primary_color": "p", "accent_color": "a",
+			"logo_url": "l", "support_email": "e", "default_dialling_region": "KE",
+		},
 	}
 	got := in.Public()
 	want := PublicSettings{
