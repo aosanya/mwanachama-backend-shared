@@ -61,7 +61,7 @@ func ValidateMaxLength(n, capValue int) error { return models.ValidateMaxLength(
 // Default* forward to their models. namesakes.
 const (
 	DefaultPublicAddressCap     = models.DefaultPublicAddressCap
-	DefaultChapterMembershipCap = models.DefaultChapterMembershipCap
+	DefaultStructureMembershipCap = models.DefaultStructureMembershipCap
 	DefaultFreeTextMaxLengthCap = models.DefaultFreeTextMaxLengthCap
 )
 

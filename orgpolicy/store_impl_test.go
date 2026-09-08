@@ -14,7 +14,7 @@ func TestStoreGetWithNoRowAnswersCompiledDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
-	if p.PublicAddressCap != 50 || p.ChapterMembershipCap != 5 || p.FreeTextMaxLengthCap != 1000 {
+	if p.PublicAddressCap != 50 || p.StructureMembershipCap != 5 || p.FreeTextMaxLengthCap != 1000 {
 		t.Fatalf("expected compiled defaults, got %+v", p)
 	}
 }
@@ -23,7 +23,7 @@ func TestStoreSetThenGetRoundTrips(t *testing.T) {
 	s := newTestStore(t, nil)
 	ctx := context.Background()
 
-	in := orgpolicy.Policy{PublicAddressCap: 10, ChapterMembershipCap: 3, FreeTextMaxLengthCap: 500, UpdatedBy: "op-1"}
+	in := orgpolicy.Policy{PublicAddressCap: 10, StructureMembershipCap: 3, FreeTextMaxLengthCap: 500, UpdatedBy: "op-1"}
 	out, err := s.Set(ctx, in)
 	if err != nil {
 		t.Fatalf("Set: %v", err)
@@ -36,12 +36,12 @@ func TestStoreSetThenGetRoundTrips(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
-	if got.PublicAddressCap != 10 || got.ChapterMembershipCap != 3 || got.FreeTextMaxLengthCap != 500 {
+	if got.PublicAddressCap != 10 || got.StructureMembershipCap != 3 || got.FreeTextMaxLengthCap != 500 {
 		t.Fatalf("Get after Set = %+v", got)
 	}
 
 	// Set upserts — a second Set replaces the row, not adds one.
-	if _, err := s.Set(ctx, orgpolicy.Policy{PublicAddressCap: 20, ChapterMembershipCap: 3, FreeTextMaxLengthCap: 500}); err != nil {
+	if _, err := s.Set(ctx, orgpolicy.Policy{PublicAddressCap: 20, StructureMembershipCap: 3, FreeTextMaxLengthCap: 500}); err != nil {
 		t.Fatalf("second Set: %v", err)
 	}
 	got, err = s.Get(ctx)
@@ -54,9 +54,9 @@ func TestStoreSetRejectsBadCaps(t *testing.T) {
 	s := newTestStore(t, nil)
 	ctx := context.Background()
 	cases := []orgpolicy.Policy{
-		{PublicAddressCap: -1, ChapterMembershipCap: 1, FreeTextMaxLengthCap: 1},
-		{PublicAddressCap: 0, ChapterMembershipCap: 0, FreeTextMaxLengthCap: 1},
-		{PublicAddressCap: 0, ChapterMembershipCap: 1, FreeTextMaxLengthCap: 0},
+		{PublicAddressCap: -1, StructureMembershipCap: 1, FreeTextMaxLengthCap: 1},
+		{PublicAddressCap: 0, StructureMembershipCap: 0, FreeTextMaxLengthCap: 1},
+		{PublicAddressCap: 0, StructureMembershipCap: 1, FreeTextMaxLengthCap: 0},
 	}
 	for _, c := range cases {
 		if _, err := s.Set(ctx, c); !errors.Is(err, orgpolicy.ErrBadCap) {

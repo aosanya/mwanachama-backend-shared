@@ -54,7 +54,7 @@ func TestOrgPolicyRoundTripLive(t *testing.T) {
 	ctx := context.Background()
 	t.Cleanup(func() { db.Exec("DELETE FROM org_policy_overrides") })
 
-	out, err := s.Set(ctx, orgpolicy.Policy{PublicAddressCap: 7, ChapterMembershipCap: 2, FreeTextMaxLengthCap: 300, UpdatedBy: "live-test"})
+	out, err := s.Set(ctx, orgpolicy.Policy{PublicAddressCap: 7, StructureMembershipCap: 2, FreeTextMaxLengthCap: 300, UpdatedBy: "live-test"})
 	if err != nil {
 		t.Fatalf("Set: %v", err)
 	}

@@ -14,11 +14,11 @@ import "time"
 // exception an exception.
 const DefaultPublicAddressCap = 50
 
-// DefaultChapterMembershipCap is how many chapters one member may be
+// DefaultStructureMembershipCap is how many chapters one member may be
 // registered at when the gateway has no policy row at all.
 //
 // **Five, by owner decision (2026-08-27).**
-const DefaultChapterMembershipCap = 5
+const DefaultStructureMembershipCap = 5
 
 // DefaultFreeTextMaxLengthCap is the ceiling a gateway uses when it has no
 // policy row at all.
@@ -34,11 +34,11 @@ type Policy struct {
 	// holds one and still counts.
 	PublicAddressCap int `json:"public_address_cap"`
 
-	// ChapterMembershipCap is how many chapters one member may hold a live
+	// StructureMembershipCap is how many chapters one member may hold a live
 	// registration at, home chapter included. The unit is registrations the
 	// member holds, not chapters they are counted in — derived ancestor
 	// membership spends nothing against this number.
-	ChapterMembershipCap int `json:"chapter_membership_cap"`
+	StructureMembershipCap int `json:"structure_membership_cap"`
 
 	// FreeTextMaxLengthCap is the largest max_length an author may set on a
 	// free-text question, and the length every free-text answer in this

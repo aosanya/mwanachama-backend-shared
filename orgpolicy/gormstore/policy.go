@@ -30,7 +30,7 @@ func PolicyToRow(p models.Policy) PolicyRow {
 	return PolicyRow{
 		Singleton:            true,
 		PublicAddressCap:     p.PublicAddressCap,
-		ChapterMembershipCap: p.ChapterMembershipCap,
+		ChapterMembershipCap: p.StructureMembershipCap,
 		FreeTextMaxLengthCap: p.FreeTextMaxLengthCap,
 		UpdatedBy:            p.UpdatedBy,
 	}
@@ -39,10 +39,10 @@ func PolicyToRow(p models.Policy) PolicyRow {
 // PolicyFromRow converts a row back to the domain Policy.
 func PolicyFromRow(r PolicyRow) models.Policy {
 	return models.Policy{
-		PublicAddressCap:     r.PublicAddressCap,
-		ChapterMembershipCap: r.ChapterMembershipCap,
-		FreeTextMaxLengthCap: r.FreeTextMaxLengthCap,
-		UpdatedAt:            r.UpdatedAt,
-		UpdatedBy:            r.UpdatedBy,
+		PublicAddressCap:       r.PublicAddressCap,
+		StructureMembershipCap: r.ChapterMembershipCap,
+		FreeTextMaxLengthCap:   r.FreeTextMaxLengthCap,
+		UpdatedAt:              r.UpdatedAt,
+		UpdatedBy:              r.UpdatedBy,
 	}
 }

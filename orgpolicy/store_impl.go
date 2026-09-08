@@ -51,7 +51,7 @@ func (s *Store) Get(ctx context.Context) (Policy, error) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return Policy{
 			PublicAddressCap:     models.DefaultPublicAddressCap,
-			ChapterMembershipCap: models.DefaultChapterMembershipCap,
+			StructureMembershipCap: models.DefaultStructureMembershipCap,
 			FreeTextMaxLengthCap: models.DefaultFreeTextMaxLengthCap,
 		}, nil
 	}
@@ -77,7 +77,7 @@ func (s *Store) Set(ctx context.Context, p Policy) (Policy, error) {
 	if err := models.ValidateCap(p.PublicAddressCap); err != nil {
 		return Policy{}, fmt.Errorf("%w: %v", ErrBadCap, err)
 	}
-	if err := models.ValidateMembershipCap(p.ChapterMembershipCap); err != nil {
+	if err := models.ValidateMembershipCap(p.StructureMembershipCap); err != nil {
 		return Policy{}, fmt.Errorf("%w: %v", ErrBadCap, err)
 	}
 	if err := models.ValidateFreeTextMaxLengthCap(p.FreeTextMaxLengthCap); err != nil {
