@@ -28,14 +28,14 @@ func ValidateOverride(n, orgCap int) error {
 }
 
 // ValidateMembershipCap reports whether n is a number the organization's
-// chapter-membership cap can be set to. Unlike ValidateCap, zero is refused:
-// a chapter registration is not an exception to anything, it is what a
+// structure-membership cap can be set to. Unlike ValidateCap, zero is refused:
+// a structure registration is not an exception to anything, it is what a
 // member is.
 func ValidateMembershipCap(n int) error {
 	if n < 1 {
 		return fmt.Errorf(
-			"a member has to be able to join at least one chapter — "+
-				"close enrollment by making chapters undiscoverable, not with a cap of %d", n)
+			"a member has to be able to join at least one structure — "+
+				"close enrollment by making structures undiscoverable, not with a cap of %d", n)
 	}
 	return nil
 }
