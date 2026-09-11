@@ -57,3 +57,19 @@ entity/relationship graph store built for CodeValdCortex agencies), but:
   [documentation/3. implementation/todo.md](documentation/3.%20implementation/todo.md).
 - Four-phase `documentation/` layout — see
   [documentation/README.md](documentation/README.md).
+
+## mcpui
+
+`mcpui/` (added 2026-09-11) has nothing to do with the entity-graph engine
+above — it's this module's second role, as the dependency every backend
+repo's own MCP Apps (SEP-1865) dashboard View pulls its CSS from, so those
+hand-rolled HTML views share one visual design system
+(`mwanachama-wakala-studio`'s look: IBM Plex Sans/Mono + Big Shoulders
+Display, warm ochre accent, sharp corners, hairline borders) instead of
+each repo hand-copying and drifting from its own snapshot of the palette.
+`mwanachama-backend-agency/mcp/dashboard_ui.go` is the first, reference
+consumer — see that repo's CLAUDE.md (AG17) for the full record. Depend on
+this module the same way `mwanachama-backend-actor` already does: a
+`replace github.com/aosanya/mwanachama-backend-shared =>
+../mwanachama-backend-shared` line in the consumer's `go.mod`, since this
+is unpublished and always resolved from the sibling checkout.
