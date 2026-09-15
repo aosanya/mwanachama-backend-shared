@@ -217,17 +217,34 @@ this repo is already proof it holds up.
 ## What should stay put, or wait
 
 - **`StringToNullable`/`nullableToString`** — present in `actor`,
-  `assetmanager`, `comm`, `git`, but **not consistent**: actor and
-  assetmanager keep both unexported; comm and git export
-  `NullableToString`. Worse, `forms` deliberately has *neither* — its own
-  CLAUDE.md states every optional field is a plain `string` with `""` as
-  the unset sentinel, specifically to avoid the nullable-pointer problem
-  rather than solve it. Extracting this today means picking a winner
-  between two real, already-shipping conventions (nullable `*string` vs.
-  empty-string sentinel) org-wide. That's a design decision for whoever
-  owns this repo's roadmap, not something to resolve silently inside an
-  extraction — call it out as an open question (see Sequencing below)
-  before writing a `gormutil.StringToNullable`.
+  `assetmanager`, `comm`, `git`. **Resolved by S11** (2026-09-15): reading
+  every one of these four repos' actual call sites (not just presence/
+  absence of the helper) shows there is no real convention split to
+  arbitrate. `actor.models.Group.ParentID`, `assetmanager.models.Location.
+  ParentLocationID`, `comm.models.{Chat,DirectMessage}.ThreadID`, and
+  `git.models.{Branch,Commit,MergeRequest,Tag}.RepositoryID` are every one
+  of them a plain `string`, `""` meaning unset — exactly `forms`'
+  convention, with zero exceptions found. `StringToNullable`/
+  `nullableToString`/`NullableToString` never leak past the row layer:
+  each is called only inside a `*ToRow`/`*FromRow` (or, in git's case, the
+  root-package `_impl.go` files that build a row directly) conversion, to
+  give one specific indexed, self-referencing-or-FK-shaped column
+  (`ParentID`, `ParentLocationID`, `ThreadID`, `RepositoryID`) real SQL
+  `NULL` — needed so a partial unique index / self-referencing "root has
+  no parent" case behaves correctly, which an empty string can't express
+  at the SQL layer. `forms` has neither helper not because it picked a
+  different domain convention, but because it has no field of that
+  specific shape (an indexed, nullable reference column) yet — it was
+  never a competing choice to reconcile, just an audit that conflated
+  "has this storage-layer helper" with "uses this domain convention."
+  **Org-wide domain convention, confirmed unanimous, nothing to change**:
+  a domain Go type's optional string field is always plain `string`, `""`
+  = unset. `gormutil`'s extraction (S14) should package
+  `StringToNullable`/`NullableToString` (exported — comm/git's spelling,
+  since a shared package's whole point is being called from outside) as a
+  **row-layer boundary helper**, documented for exactly this case (an
+  indexed nullable-reference GORM column), never as something a domain
+  type itself should reach for.
 - **`models/property.go`'s `Property`/`ValidateAttributes`/
   `checkUniqueAttributes` system** (actor only) — a real, working
   Required/Range/Unique/Options validator over a `map[string]any`
