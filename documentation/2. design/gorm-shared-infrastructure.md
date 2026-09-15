@@ -290,10 +290,12 @@ shared, nothing to move.
 
 ## Sequencing
 
-1. **Resolve the nullable-value question first** (blocks `gormutil`'s
-   string helpers) — pick nullable-pointer or empty-string-sentinel as the
-   org convention, or explicitly bless both and give the helper a name
-   that doesn't imply "the" way.
+1. **Resolved (S11, 2026-09-15)** — see "What should stay put, or wait"
+   above: no real split existed once call sites were read directly, not
+   just helper presence/absence. Domain convention stays empty-string
+   sentinel everywhere, unanimous; `StringToNullable`/`NullableToString`
+   is a row-layer-only boundary helper for indexed nullable-reference
+   columns. `gormutil`'s string helpers (S14) are unblocked.
 2. Extract `gormtest/` first regardless — it has zero design decisions
    left to make (five repos already agree on the shape) and immediately
    deletes the most repeated file in the family.
