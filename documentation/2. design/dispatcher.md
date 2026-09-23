@@ -99,3 +99,65 @@ key hash out of a response. `once: true` marks a value the store will never
 produce again; it is declared because `IssueShareLink` returns
 `(ShareLink, string, error)` and no convention can infer that the second value
 is a secret.
+
+## The same spec as MCP tools
+
+`Tools(spec, deps)` returns one `Tool` per operation from the same file the
+routes come from: a name, prose, a JSON Schema, and an `Invoke` that takes the
+call's arguments as raw JSON and returns the manager's own value. It exists
+because the alternative was a hand-written `mcp` package per module, which is
+the duplication this package was created to remove — and because a module that
+declares its objects and its operations cannot hand-write one anyway: a
+domain-agnostic module may not carry an agency's words, and
+`mwanachama-backend-catalog` carries no Go handler left to hang a tool on.
+
+**It does not depend on the MCP SDK.** A `Tool` carries `InputSchema` as
+`json.RawMessage` and `Invoke` as a plain function, so the twenty lines that
+turn one into an SDK tool live in the process that already imports the SDK
+(`mwanachama-wakala-api`'s `mcp_tools_catalog.go`). A library that only wants
+its acts callable does not acquire a protocol dependency to get them.
+
+### One flat object of arguments
+
+HTTP spreads a call across an address, a query string and a body; a tool gets
+one JSON object. So every argument becomes one property:
+
+- a named argument is its own property, typed from the manager's parameter
+- a `whole` body or query is **spread** — one property per field of the struct,
+  by `json` tag for a body and by `query` key for a query, reassembled before
+  the call
+- an `into` argument replaces the field it overwrites, so `slug` appears once,
+  and the address-outranks-the-body rule holds by construction rather than by
+  ordering
+
+An argument the operation does not declare is refused rather than ignored,
+which is the tool-side equivalent of `DisallowUnknownFields` and the thing that
+tells a model it used a word this module does not have.
+
+### Prose is declared, never inferred
+
+An operation must carry a `description`, or `Tools` refuses the whole spec: a
+tool a model cannot read is a tool it cannot call correctly, and the moment to
+notice is startup. `title` is the human label, `description` the instruction.
+
+Per-argument prose comes from `Deps.Fields`, a map of `Type.field` to a
+description, whether a value is required, whether the store owns it, and the
+values an enum permits. A module that declares its objects already has all four
+— `mwanachama-backend-catalog` builds the map from its blueprint — so the
+schema a model reads and the column the write lands in cannot drift apart. An
+argument may also name a field directly (`"field": "Entry.visibility"`) to
+borrow its prose and its enum, which is how `set_visibility`'s scalar argument
+offers the three states without repeating them.
+
+A field the store owns — a primary key, a stamped time, a review state a
+different operation sets — is marked read-only and never becomes an argument.
+That is what keeps `catalog_entry_upsert` from offering a model a `visibility`
+it would be entitled to expect the store to honour, when `UpsertEntry`
+overwrites it.
+
+### Errors keep the HTTP surface's answer
+
+A sentinel the spec maps to a status reaches the caller with its own text; one
+it does not map is `internal error`, exactly as the route table renders a 500.
+The two surfaces cannot disagree about what a caller is told, because they read
+one table.

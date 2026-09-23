@@ -20,6 +20,8 @@ type Deps struct {
 	Errors map[string]error
 
 	Fallback int
+
+	Fields map[string]FieldDoc
 }
 
 var ctxType = reflect.TypeOf((*context.Context)(nil)).Elem()

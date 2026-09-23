@@ -30,11 +30,14 @@ var ActionPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){2,}$
 var NamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 type Arg struct {
-	From     Source `json:"from"`
-	As       string `json:"as,omitempty"`
-	Repeated bool   `json:"repeated,omitempty"`
-	Whole    bool   `json:"whole,omitempty"`
-	Into     string `json:"into,omitempty"`
+	From        Source `json:"from"`
+	As          string `json:"as,omitempty"`
+	Repeated    bool   `json:"repeated,omitempty"`
+	Whole       bool   `json:"whole,omitempty"`
+	Into        string `json:"into,omitempty"`
+	Description string `json:"description,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+	Field       string `json:"field,omitempty"`
 }
 
 func (a Arg) positional() bool { return a.Into == "" }
@@ -46,13 +49,15 @@ type Return struct {
 }
 
 type Operation struct {
-	Method  string   `json:"method"`
-	Path    string   `json:"path"`
-	Call    string   `json:"call"`
-	Action  string   `json:"action"`
-	Status  int      `json:"status,omitempty"`
-	Args    []Arg    `json:"args,omitempty"`
-	Returns []Return `json:"returns,omitempty"`
+	Method      string   `json:"method"`
+	Path        string   `json:"path"`
+	Call        string   `json:"call"`
+	Action      string   `json:"action"`
+	Status      int      `json:"status,omitempty"`
+	Title       string   `json:"title,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Args        []Arg    `json:"args,omitempty"`
+	Returns     []Return `json:"returns,omitempty"`
 }
 
 type Spec struct {
