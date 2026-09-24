@@ -1,0 +1,92 @@
+{
+  "module": "record",
+  "objects": [
+    {
+      "role": "entry",
+      "description": "One thing this module keeps a record of, whatever the domain calls it.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Storage key, opaque to callers.",
+          "primary": true
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "description": "Stable URL key, fixed when the record is created.",
+          "required": true,
+          "unique": true,
+          "immutable": true,
+          "matches": "slug"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "description": "What a person reading a listing sees.",
+          "required": true
+        },
+        {
+          "name": "doc",
+          "type": "json",
+          "description": "Everything domain-shaped about this record, queried by path rather than parsed per row.",
+          "required": true
+        },
+        {
+          "name": "state",
+          "type": "enum",
+          "description": "Where this record has got to in review.",
+          "default": "pending",
+          "values": [
+            "pending",
+            "open",
+            "closed"
+          ]
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "description": "When this record was first written."
+        },
+        {
+          "name": "deleted",
+          "type": "bool",
+          "description": "Whether this record has been retired from every listing."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "state",
+          "description": "The reviewer's queue, which reads by state alone.",
+          "fields": [
+            "state"
+          ],
+          "not_deleted": true
+        }
+      ]
+    },
+    {
+      "role": "page_view",
+      "description": "How many times one page was loaded, counted per record.",
+      "fields": [
+        {
+          "name": "page",
+          "type": "string",
+          "description": "Which page was loaded.",
+          "primary": true
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "description": "The record whose page it was, empty for the index.",
+          "primary": true
+        },
+        {
+          "name": "views",
+          "type": "int",
+          "description": "The running total for this page."
+        }
+      ]
+    }
+  ]
+}

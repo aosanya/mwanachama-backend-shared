@@ -1,0 +1,61 @@
+{
+  "module": "record",
+  "domain": "garage",
+  "instance": "garage",
+  "objects": [
+    {
+      "role": "entry",
+      "name": "vehicle",
+      "table": "vehicles",
+      "description": "One car the garage has worked on, with its history in the document.",
+      "fields": [
+        {
+          "name": "state",
+          "default": "open"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "vin",
+          "description": "Finds a car by chassis number, and stops one being booked in twice.",
+          "path": {
+            "field": "doc",
+            "path": "identifiers.vin"
+          },
+          "unique": true,
+          "not_deleted": true
+        }
+      ]
+    },
+    {
+      "role": "page_view",
+      "name": "page_view",
+      "table": "page_views",
+      "description": "How often one vehicle's history page was opened."
+    },
+    {
+      "name": "part",
+      "table": "parts",
+      "description": "Something the garage fitted, which the clinic has no notion of.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Storage key for this part.",
+          "primary": true
+        },
+        {
+          "name": "vehicle_slug",
+          "type": "string",
+          "description": "The car it went into.",
+          "required": true
+        },
+        {
+          "name": "fitted_at",
+          "type": "timestamp",
+          "description": "When the part was fitted."
+        }
+      ]
+    }
+  ]
+}

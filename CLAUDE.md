@@ -74,6 +74,31 @@ this module the same way `mwanachama-backend-actor` already does: a
 ../mwanachama-backend-shared` line in the consumer's `go.mod`, since this
 is unpublished and always resolved from the sibling checkout.
 
+## spec
+
+`spec/` (moved here from `mwanachama-backend-catalog` on 2026-09-24, S18) is
+this module's third role, and has nothing to do with the entity-graph engine
+above either: it is the loader for a **declared domain** — the objects a
+module stores, their fields and their indexes, as JSON rather than as Go row
+structs. A module ships a blueprint declaring its roles and their fields; a
+domain ships a spec naming which object fills each role, where it lands, and
+its own indexes. `spec.Migrate` emits the DDL, which is the whole storage
+story — there is no `AutoMigrate` and there are no row structs.
+
+It knows nothing about any one module: a table is
+`<instance>_<module>_<table>`, every identifier is validated against a strict
+alphabet because it reaches SQL as text, and every emitted name is measured
+against Postgres's 63-byte limit, which truncates silently. The `matches`
+pattern registry stays per module — the spec names a pattern, the module says
+what the name means.
+
+`mwanachama-backend-catalog` is the first consumer and
+`mwanachama-backend-agency` the second (AGD-007 there). The org-wide strategy
+this serves is `developer/documentation/2. design/architecture-spec-driven-modules.md`;
+the engine's own reference is
+[documentation/2. design/](documentation/2.%20design/), beside `dispatcher.md`
+and `httpwire.md`, which document the operations half of the same shape.
+
 ## Code comments
 
 Write code with no comments. Not one-liners above a function, not section

@@ -1,0 +1,54 @@
+{
+  "module": "record",
+  "domain": "clinic",
+  "instance": "clinic",
+  "objects": [
+    {
+      "role": "entry",
+      "name": "patient",
+      "table": "patients",
+      "description": "One person the clinic treats, with their whole file in the document.",
+      "indexes": [
+        {
+          "name": "blood_pressure",
+          "description": "The nurse's morning round, which reads by last recorded pressure.",
+          "path": {
+            "field": "doc",
+            "path": "vitals.blood_pressure"
+          },
+          "not_deleted": true
+        }
+      ]
+    },
+    {
+      "role": "page_view",
+      "name": "page_view",
+      "table": "page_views",
+      "description": "How often one patient's page was opened at the front desk."
+    },
+    {
+      "name": "visit",
+      "table": "visits",
+      "description": "One appointment the clinic keeps, which no other domain has.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Storage key for this visit.",
+          "primary": true
+        },
+        {
+          "name": "patient_slug",
+          "type": "string",
+          "description": "The patient who was seen.",
+          "required": true
+        },
+        {
+          "name": "seen_at",
+          "type": "timestamp",
+          "description": "When the appointment happened."
+        }
+      ]
+    }
+  ]
+}

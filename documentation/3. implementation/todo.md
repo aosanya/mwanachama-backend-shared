@@ -5,5 +5,4 @@ Everything else (completed rows, board context) is in [todo_done.md](todo_done.m
 
 | Task | Title | Status | Depends on |
 |------|-------|--------|------------|
-
-Nothing open — see [todo_done.md](todo_done.md) for S1–S16.
+Nothing open — see [todo_done.md](todo_done.md) for S1–S20.
