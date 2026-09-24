@@ -498,9 +498,9 @@ func spreadFromArgs(sl slot, in map[string]json.RawMessage) ([]reflect.Value, er
 	if !ok {
 		return nil, nil
 	}
-	var items []json.RawMessage
-	if err := json.Unmarshal(raw, &items); err != nil {
-		return nil, fmt.Errorf("%s: expected a list", sl.arg.As)
+	items, err := listOfOne(raw)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %v", sl.arg.As, err)
 	}
 	out := make([]reflect.Value, 0, len(items))
 	for _, item := range items {
@@ -511,6 +511,18 @@ func spreadFromArgs(sl slot, in map[string]json.RawMessage) ([]reflect.Value, er
 		out = append(out, v)
 	}
 	return out, nil
+}
+
+func listOfOne(raw json.RawMessage) ([]json.RawMessage, error) {
+	var items []json.RawMessage
+	if err := json.Unmarshal(raw, &items); err == nil {
+		return items, nil
+	}
+	var single any
+	if err := json.Unmarshal(raw, &single); err != nil {
+		return nil, errors.New("neither a list nor a value")
+	}
+	return []json.RawMessage{raw}, nil
 }
 
 func overwriteFromArgs(op Operation, target reflect.Value, in map[string]json.RawMessage) error {
@@ -537,9 +549,20 @@ func valueFromArgs(want reflect.Type, raw json.RawMessage, name string) (reflect
 	}
 	v := reflect.New(want)
 	if err := json.Unmarshal(raw, v.Interface()); err != nil {
+		if want.Kind() == reflect.Slice {
+			return oneElementSlice(want, raw, name)
+		}
 		return reflect.Value{}, fmt.Errorf("%s: %v", name, err)
 	}
 	return v.Elem(), nil
+}
+
+func oneElementSlice(want reflect.Type, raw json.RawMessage, name string) (reflect.Value, error) {
+	element := reflect.New(want.Elem())
+	if err := json.Unmarshal(raw, element.Interface()); err != nil {
+		return reflect.Value{}, fmt.Errorf("%s: %v", name, err)
+	}
+	return reflect.Append(reflect.MakeSlice(want, 0, 1), element.Elem()), nil
 }
 
 func rendered(op Operation, values []reflect.Value) any {

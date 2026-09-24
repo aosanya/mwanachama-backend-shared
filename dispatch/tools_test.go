@@ -279,6 +279,30 @@ func TestARepeatedArgumentSpreadsIntoAVariadic(t *testing.T) {
 	}
 }
 
+func TestOneValueWhereAListWasDeclaredIsTakenAsAListOfOne(t *testing.T) {
+	tools, m := buildTools(t)
+	out, err := call(t, tools["t_note_tally"], `{"kind":"draft"}`)
+	if err != nil {
+		t.Fatalf("a single value was refused where a list was declared: %v", err)
+	}
+	if len(m.kinds) != 1 || m.kinds[0] != "draft" {
+		t.Fatalf("kinds = %v", m.kinds)
+	}
+	if out != 1 {
+		t.Fatalf("out = %v", out)
+	}
+}
+
+func TestAListIsStillAList(t *testing.T) {
+	tools, m := buildTools(t)
+	if _, err := call(t, tools["t_note_tally"], `{"kind":["draft","kept"]}`); err != nil {
+		t.Fatalf("invoke: %v", err)
+	}
+	if len(m.kinds) != 2 {
+		t.Fatalf("kinds = %v", m.kinds)
+	}
+}
+
 func TestNamedReturnsBecomeAToolResultObject(t *testing.T) {
 	tools, _ := buildTools(t)
 	out, err := call(t, tools["t_link_issue"], `{"slug":"one","label":"for-ann"}`)
