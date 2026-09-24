@@ -38,9 +38,10 @@ type Arg struct {
 	Description string `json:"description,omitempty"`
 	Required    bool   `json:"required,omitempty"`
 	Field       string `json:"field,omitempty"`
+	Ignored     bool   `json:"ignored,omitempty"`
 }
 
-func (a Arg) positional() bool { return a.Into == "" }
+func (a Arg) positional() bool { return a.Into == "" && !a.Ignored }
 
 type Return struct {
 	As   string `json:"as,omitempty"`
@@ -53,6 +54,7 @@ type Operation struct {
 	Path        string   `json:"path"`
 	Call        string   `json:"call"`
 	Action      string   `json:"action"`
+	Tool        string   `json:"tool,omitempty"`
 	Status      int      `json:"status,omitempty"`
 	Title       string   `json:"title,omitempty"`
 	Description string   `json:"description,omitempty"`
@@ -96,6 +98,7 @@ func (s *Spec) Validate() error {
 	seenAction := map[string]string{}
 	seenAddress := map[string]string{}
 	seenOnce := map[string]string{}
+	seenTool := map[string]string{}
 
 	for _, name := range sortedKeys(s.Operations) {
 		op := s.Operations[name]
@@ -122,6 +125,16 @@ func (s *Spec) Validate() error {
 			add("operations %q and %q both claim the action %q", first, name, op.Action)
 		} else {
 			seenAction[op.Action] = name
+		}
+
+		if op.Tool != "" {
+			if !NamePattern.MatchString(op.Tool) {
+				add("operation %q: tool name %q is not a usable name", name, op.Tool)
+			} else if first, taken := seenTool[op.Tool]; taken {
+				add("operations %q and %q both publish the tool %q", first, name, op.Tool)
+			} else {
+				seenTool[op.Tool] = name
+			}
 		}
 
 		address := op.Method + " " + op.Path
@@ -166,6 +179,21 @@ func (op Operation) validate(name string) []string {
 	for i, a := range op.Args {
 		if !sources[a.From] {
 			add("operation %q: argument %d comes from %q, which is not path, query or body", name, i, a.From)
+		}
+		if a.Ignored {
+			switch {
+			case a.From != FromPath:
+				add("operation %q: argument %d is ignored, which only an address segment may be", name, i)
+			case a.Whole || a.Repeated || a.Into != "":
+				add("operation %q: argument %d is ignored and cannot be anything else", name, i)
+			case a.As == "":
+				add("operation %q: argument %d is ignored and names nothing", name, i)
+			case !declared[a.As]:
+				add("operation %q: argument %q is ignored, and the path declares no {%s}", name, a.As, a.As)
+			default:
+				bound[a.As] = true
+			}
+			continue
 		}
 		if a.Into != "" {
 			if a.From != FromPath {

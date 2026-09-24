@@ -98,7 +98,7 @@ func Tools(s *Spec, d Deps) ([]Tool, error) {
 			continue
 		}
 		out = append(out, Tool{
-			Name:        toolName(op.Action),
+			Name:        publishedName(op),
 			Title:       op.Title,
 			Description: op.Description,
 			Action:      op.Action,
@@ -114,6 +114,17 @@ func Tools(s *Spec, d Deps) ([]Tool, error) {
 }
 
 func toolName(action string) string { return strings.ReplaceAll(action, ".", "_") }
+
+// publishedName is the name callers have hardcoded. It is derived from the
+// action unless the operation declares one, because renaming a tool breaks
+// every caller that named it and a module converting a hand-written surface
+// has names it may not change.
+func publishedName(op Operation) string {
+	if op.Tool != "" {
+		return op.Tool
+	}
+	return toolName(op.Action)
+}
 
 func planFor(op Operation, t reflect.Type) ([]slot, error) {
 	var out []slot
@@ -176,7 +187,7 @@ func properties(op Operation, plan []slot, docs map[string]FieldDoc) ([]property
 	}
 
 	for _, a := range op.Args {
-		if a.positional() {
+		if a.positional() || a.Ignored {
 			continue
 		}
 		target, ok := wholeStruct(plan)

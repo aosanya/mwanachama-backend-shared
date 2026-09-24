@@ -55,6 +55,7 @@ gated. A mount should fail its own startup on a non-empty `Unmatched`.
 | `{from: query, as: x, repeated: true}` | binds a variadic, one call argument per occurrence |
 | `{from: body\|query, whole: true}` | the entire request becomes one parameter |
 | `{from: path, as: x, into: Field}` | overwrites a field on the whole parameter |
+| `{from: path, as: x, ignored: true}` | an address segment the call does not take |
 
 `whole` exists because managers take domain structs — `UpsertEntry(ctx, Entry)`,
 `ListEntries(ctx, ListFilter)` — not loose scalars. A whole body decodes with
@@ -69,6 +70,16 @@ so a caller cannot `PUT /entries/a` with a body claiming slug `b` and write to
 `b`. Overwrites therefore apply *after* the body is decoded, and only `path`
 may overwrite — a spec saying `from: query` or `from: body` with `into` is
 refused at load. Pinned by `TestTheAddressOutranksAContradictingBody`.
+
+**An `ignored` segment is how a nested address stays honest.** Every path
+wildcard has to be accounted for, because one nothing binds is usually a call
+quietly dropping a value the address said mattered. A REST nesting like
+`DELETE /values/{valueID}/attachments/{attachmentID}` is the exception that is
+not a mistake: the parent is part of the address and the call takes only the
+child. Declaring the parent `ignored` says so, and the rule stays strict for
+everything else. An ignored argument takes no position in the call and becomes
+no tool parameter; it may only come from the path, must name a wildcard the
+path declares, and may not also be whole, repeated or an overwrite.
 
 ## What the spec is refused for
 
@@ -111,6 +122,13 @@ the duplication this package was created to remove — and because a module that
 declares its objects and its operations cannot hand-write one anyway: a
 domain-agnostic module may not carry an agency's words, and
 `mwanachama-backend-catalog` carries no Go handler left to hang a tool on.
+
+**A tool's name may be declared.** It is derived from the action by default
+(`x.entry.open` becomes `x_entry_open`), which suits a surface nobody calls
+yet. A module converting a hand-written one has names its callers hardcode,
+so `"tool": "agency_create_goal"` keeps them; two operations publishing one
+name is refused at load. Renaming a tool is a breaking change, and it should
+not happen as a side effect of a derivation rule.
 
 **It does not depend on the MCP SDK.** A `Tool` carries `InputSchema` as
 `json.RawMessage` and `Invoke` as a plain function, so the twenty lines that

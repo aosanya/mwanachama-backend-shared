@@ -297,3 +297,66 @@ func TestDispatchRefusesAnArityMismatch(t *testing.T) {
 		t.Fatal("a spec declaring 1 argument for a 2-argument method was accepted")
 	}
 }
+
+type nested struct{ removed string }
+
+func (n *nested) Remove(ctx context.Context, id string) error {
+	n.removed = id
+	return nil
+}
+
+// A nested address names the parent the child hangs off — /parents/{parentID}
+// /children/{childID} — and the call needs only the child. The parent is
+// still declared, as ignored, because a wildcard nothing accounts for is
+// usually a call quietly dropping an argument the address said mattered.
+func TestIgnoredPathSegment(t *testing.T) {
+	const raw = `{"operations":{"remove_child":{
+	  "method":"DELETE","path":"/parents/{parentID}/children/{childID}","call":"Remove",
+	  "action":"x.child.remove","status":204,"description":"Remove one child.",
+	  "args":[{"from":"path","as":"parentID","ignored":true},
+	          {"from":"path","as":"childID","description":"The child to remove."}],
+	  "returns":[{"body":true}]}}}`
+
+	s, err := dispatch.Parse([]byte(raw))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	n := &nested{}
+	rts, err := dispatch.Dispatch(s, dispatch.Deps{Manager: n})
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	for _, rt := range rts {
+		mux.Handle(rt.Pattern(""), rt.Handler)
+	}
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, "/parents/p1/children/c1", nil))
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if n.removed != "c1" {
+		t.Errorf("removed = %q, want the child the address named", n.removed)
+	}
+}
+
+func TestIgnoredRefusals(t *testing.T) {
+	for _, tc := range []struct{ name, args, want string }{
+		{"from the body", `[{"from":"body","as":"x","ignored":true}]`, "only an address segment may be"},
+		{"naming nothing", `[{"from":"path","ignored":true}]`, "names nothing"},
+		{"naming an undeclared segment", `[{"from":"path","as":"nope","ignored":true},{"from":"path","as":"childID"}]`, "the path declares no"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			raw := `{"operations":{"remove_child":{
+			  "method":"DELETE","path":"/parents/{parentID}/children/{childID}","call":"Remove",
+			  "action":"x.child.remove","status":204,"description":"Remove one child.",
+			  "args":` + tc.args + `,"returns":[{"body":true}]}}}`
+			_, err := dispatch.Parse([]byte(raw))
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err = %v, want it to mention %q", err, tc.want)
+			}
+		})
+	}
+}

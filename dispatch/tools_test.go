@@ -410,3 +410,43 @@ func TestToolsRefuseAManagerMissingTheMethod(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// A tool's name is what callers hardcode, so a module converting a
+// hand-written surface may keep the names it published.
+func TestDeclaredToolNameIsPublished(t *testing.T) {
+	const raw = `{"operations":{"open_entry":{
+	  "method":"GET","path":"/entries/{slug}","call":"Open","action":"x.entry.open",
+	  "tool":"catalog_open_entry","description":"Open one entry.",
+	  "args":[{"from":"path","as":"slug","description":"The entry to open."},
+	          {"from":"query","as":"k","description":"A share key."}],
+	  "returns":[{"body":true}]}}}`
+
+	s, err := dispatch.Parse([]byte(raw))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	tools, err := dispatch.Tools(s, dispatch.Deps{Manager: &manager{}})
+	if err != nil {
+		t.Fatalf("tools: %v", err)
+	}
+	if len(tools) != 1 || tools[0].Name != "catalog_open_entry" {
+		t.Fatalf("tools = %+v, want the declared name", tools)
+	}
+}
+
+func TestTwoOperationsCannotPublishOneToolName(t *testing.T) {
+	const raw = `{"operations":{
+	  "open_entry":{"method":"GET","path":"/entries/{slug}","call":"Open","action":"x.entry.open",
+	    "tool":"same","description":"Open one entry.",
+	    "args":[{"from":"path","as":"slug","description":"The entry."},{"from":"query","as":"k","description":"A key."}],
+	    "returns":[{"body":true}]},
+	  "read_entry":{"method":"GET","path":"/entries/{slug}/admin","call":"Open","action":"x.entry.read",
+	    "tool":"same","description":"Read one entry.",
+	    "args":[{"from":"path","as":"slug","description":"The entry."},{"from":"query","as":"k","description":"A key."}],
+	    "returns":[{"body":true}]}}}`
+
+	_, err := dispatch.Parse([]byte(raw))
+	if err == nil || !strings.Contains(err.Error(), "both publish the tool") {
+		t.Fatalf("err = %v, want the collision refused", err)
+	}
+}
