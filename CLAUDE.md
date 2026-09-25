@@ -76,14 +76,14 @@ is unpublished and always resolved from the sibling checkout.
 
 ## spec
 
-`spec/` (moved here from `mwanachama-backend-catalog` on 2026-09-24, S18) is
-this module's third role, and has nothing to do with the entity-graph engine
-above either: it is the loader for a **declared domain** — the objects a
-module stores, their fields and their indexes, as JSON rather than as Go row
-structs. A module ships a blueprint declaring its roles and their fields; a
-domain ships a spec naming which object fills each role, where it lands, and
-its own indexes. `spec.Migrate` emits the DDL, which is the whole storage
-story — there is no `AutoMigrate` and there are no row structs.
+`spec/` is this module's third role, and has nothing to do with the
+entity-graph engine above either: it is the loader for a **declared
+domain** — the objects a module stores, their fields and their indexes, as
+JSON rather than as Go row structs. A module ships a blueprint declaring
+its roles and their fields; a domain ships a spec naming which object
+fills each role, where it lands, and its own indexes. `spec.Migrate` emits
+the DDL, which is the whole storage story — there is no `AutoMigrate` and
+there are no row structs.
 
 It knows nothing about any one module: a table is
 `<instance>_<module>_<table>`, every identifier is validated against a strict
@@ -92,9 +92,22 @@ against Postgres's 63-byte limit, which truncates silently. The `matches`
 pattern registry stays per module — the spec names a pattern, the module says
 what the name means.
 
-`mwanachama-backend-catalog` is the first consumer and
-`mwanachama-backend-agency` the second (AGD-007 there). The org-wide strategy
-this serves is `developer/documentation/2. design/architecture-spec-driven-modules.md`;
+`mwanachama-backend-agency` is a real consumer (AGD-007 there: no local
+`spec/`or `gormstore/`, every `spec.Migrate`/`spec.Spec` reference in that
+repo resolves to this package). **`mwanachama-backend-catalog` is not** —
+despite row S18 (2026-09-24, `todo_done.md`) and an earlier version of this
+section claiming catalog's own `spec/` was deleted and replaced with an
+import of this package, catalog's checkout still carries its own complete,
+untouched `spec/` (`blueprint.go`, `migrate.go`, `spec.go`, `validate.go`,
+its own `examples/`) with its own `Migrate`, and imports this repo only for
+`routes/dispatch`/`routes/httpwire`, never for `spec` — confirmed directly
+against catalog's code and git history by the 2026-09-25 integration-test
+sweep, which also filed the gap as catalog's own CAT10 after it broke
+`mwanachama-wakala-api`'s build (a test there had been written on the faith
+of this section's now-corrected claim). Whatever landed in this repo for
+S18 did not reach catalog's `master` — treat that row's "and catalog" half
+as not done until CAT10 closes it. The org-wide strategy this serves is
+`developer/documentation/2. design/architecture-spec-driven-modules.md`;
 the engine's own reference is
 [documentation/2. design/](documentation/2.%20design/), beside `dispatcher.md`
 and `httpwire.md`, which document the operations half of the same shape.
