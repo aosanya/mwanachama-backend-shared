@@ -76,7 +76,8 @@ is unpublished and always resolved from the sibling checkout.
 
 ## spec
 
-`spec/` (moved here from `mwanachama-backend-catalog` on 2026-09-24, S18) is
+`spec/` (added here 2026-09-24, S18, following the shape
+`mwanachama-backend-catalog` proved first) is
 this module's third role, and has nothing to do with the entity-graph engine
 above either: it is the loader for a **declared domain** — the objects a
 module stores, their fields and their indexes, as JSON rather than as Go row
@@ -92,8 +93,16 @@ against Postgres's 63-byte limit, which truncates silently. The `matches`
 pattern registry stays per module — the spec names a pattern, the module says
 what the name means.
 
-`mwanachama-backend-catalog` is the first consumer and
-`mwanachama-backend-agency` the second (AGD-007 there). The org-wide strategy
+`mwanachama-backend-agency` is the confirmed consumer (AGD-007 there,
+`agency.go`/`store.go`/`tables.go`/`provision.go` all import this package
+directly, with no local `spec/` package of its own). `mwanachama-backend-catalog`
+still carries its own separate, un-migrated `github.com/aosanya/mwanachama-backend-catalog/spec`
+package (verified 2026-09-25: `catalog.ParseSpec` returns that package's own
+`*spec.Spec`, not this one's — a type mismatch a build against both surfaced
+directly, see `mwanachama-wakala-api`'s `internal/api/http/mcp_catalog_test.go`)
+and does not import this package at all; only its `routes/` package imports
+this repo's `dispatch` package for its route table, a different piece of the
+same org-wide shape. The org-wide strategy
 this serves is `developer/documentation/2. design/architecture-spec-driven-modules.md`;
 the engine's own reference is
 [documentation/2. design/](documentation/2.%20design/), beside `dispatcher.md`

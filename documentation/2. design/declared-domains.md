@@ -7,10 +7,17 @@ a module's objects are **data**, not Go row structs, and its tables come from
 that data. [dispatcher.md](dispatcher.md) is the other half — the same idea
 applied to the route table and the MCP tools.
 
-Both packages arrived here on 2026-09-24 (S18, S19) from
-`mwanachama-backend-catalog`, which proved the shape first and is still the
-reference consumer. `mwanachama-backend-agency` is the second, converting
-under AGD-007 on its own board. This page is what a third repo is converted
+Both packages arrived here on 2026-09-24 (S18, S19), following the shape
+`mwanachama-backend-catalog` proved first. `mwanachama-backend-agency` is the
+confirmed consumer, converted under AGD-007 on its own board — it imports
+this package directly and keeps no `spec/` package of its own.
+`mwanachama-backend-catalog` itself has not converted: as of 2026-09-25 it
+still carries its own separate, independent `spec/` package
+(`github.com/aosanya/mwanachama-backend-catalog/spec`), not this one — a real
+type mismatch (`catalog.ParseSpec`'s `*spec.Spec` is not this package's
+`*spec.Spec`) surfaces wherever a caller mixes the two, as
+`mwanachama-wakala-api`'s `internal/api/http/mcp_catalog_test.go` does. This
+page is what a next repo — catalog included, when it converts — is converted
 against.
 
 ## Two declarations, two owners
