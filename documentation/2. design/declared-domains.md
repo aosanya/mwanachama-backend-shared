@@ -7,11 +7,17 @@ a module's objects are **data**, not Go row structs, and its tables come from
 that data. [dispatcher.md](dispatcher.md) is the other half — the same idea
 applied to the route table and the MCP tools.
 
-Both packages arrived here on 2026-09-24 (S18, S19) from
-`mwanachama-backend-catalog`, which proved the shape first and is still the
-reference consumer. `mwanachama-backend-agency` is the second, converting
-under AGD-007 on its own board. This page is what a third repo is converted
-against.
+Both packages arrived here on 2026-09-24 (S18, S19), modelled on
+`mwanachama-backend-catalog`'s own `spec/`, which proved the shape first.
+**Catalog itself never converted to import this engine** — its `spec/`
+package (`blueprint.go`, `migrate.go`, `spec.go`, `validate.go`) is still a
+separate, fully independent implementation, and nothing in that repo imports
+`mwanachama-backend-shared/spec` or `/specstore` (confirmed by grep across
+`*.go`; catalog's only import of this module is `dispatch`/`httpwire`, for
+its routes). `mwanachama-backend-agency` is the first real consumer,
+converting under AGD-007 on its own board. This page is what a next repo is
+converted against — catalog's own board tracks the gap between its `spec/`
+and this one (see its `CAT10`/`CAT11`-family rows).
 
 ## Two declarations, two owners
 
