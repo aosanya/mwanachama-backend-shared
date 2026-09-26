@@ -60,7 +60,16 @@ Flags are `primary` (several make a composite key, in declared order),
 registry is the module's**, not this package's: the spec names a pattern and
 the module says what the name means, so a domain cannot invent one and a
 module cannot be forced to carry another module's vocabulary. A spec naming a
-pattern nobody supplies is an error, not a rule that quietly never runs.
+pattern nobody supplies is meant to be an error, not a rule that quietly
+never runs — but that refusal is entirely the module's own code to write
+(catalog's `patterns.go` plus its own `NewCatalogManager` check). Confirmed
+by reading, not just by description: neither `spec.Validate` nor anything
+else in `spec/`/`specstore/` reads `Field.Matches` at all — the field is
+carried through decode/merge/DDL generation and never inspected. A module
+that forgets to write that check gets no help catching the typo from here;
+`required` and an enum's `values` are the same story (see "What stays in
+Go" below) — the difference is that a *missing role* has a real, tested,
+exported guard (`Spec.RequireRoles`), and a *missing pattern* does not.
 
 Two refusals are worth knowing before they surprise anyone:
 
@@ -113,13 +122,36 @@ the database:
 - Every problem is reported, not just the first: a spec is edited by hand, and
   a list beats one round trip per mistake.
 
+Two scopes are worth being exact about, both filed as bugs (S23, S24) after a
+2026-09-26 sweep demonstrated them against a fixture domain rather than
+either shipped consumer:
+
+- **The collision check above runs once, over one spec's own object list.**
+  Nothing compares the table `Migrate` is about to create against one
+  another, already-migrated spec has already claimed in the same database —
+  two unrelated domains that each independently pass `Validate` but happen to
+  agree on `instance`+`module`+`table` share one physical table with no error
+  at load or at migrate time, and rows written through one are read back
+  through the other's own `List`. Avoiding this is the mounting caller's job
+  (choose instance names that do not collide), not something `spec`/
+  `specstore` checks for it.
+- **`Validate` is not itself part of `Migrate`.** `Migrate(db, s)` calls
+  `s.DDL(dialect)` and executes it; it never calls `s.Validate()`. A `*Spec`
+  obtained by anything other than `Load`/`Parse` — a struct built by hand, or
+  one decoded without going back through `Parse` — reaches `Migrate` with
+  none of the alphabet checks this page just described, and a single
+  malformed field `Name` can inject an extra column into the generated
+  `CREATE TABLE` with no error at all.
+
 ## Migrate is the whole storage story
 
 `spec.Migrate(db, s)` creates a table per declared object and its indexes,
-idempotently. There is no `AutoMigrate` and there are no row structs.
-`Spec.DDL(dialect)` returns the same statements without running them, which
-is what lets a spec be reviewed as SQL before it touches a database, and what
-lets a test assert on the statements rather than on their effects.
+idempotently — provided `s` already passed `Validate`, which `Migrate` does
+not check on its own (see above). There is no `AutoMigrate` and there are no
+row structs. `Spec.DDL(dialect)` returns the same statements without running
+them, which is what lets a spec be reviewed as SQL before it touches a
+database, and what lets a test assert on the statements rather than on their
+effects.
 
 What `Migrate` does **not** do is drop or alter anything. A column that stops
 being declared stays in the database; a retirement is a migration the module
