@@ -347,6 +347,9 @@ func TestIgnoredRefusals(t *testing.T) {
 		{"from the body", `[{"from":"body","as":"x","ignored":true}]`, "only an address segment may be"},
 		{"naming nothing", `[{"from":"path","ignored":true}]`, "names nothing"},
 		{"naming an undeclared segment", `[{"from":"path","as":"nope","ignored":true},{"from":"path","as":"childID"}]`, "the path declares no"},
+		{"also repeated", `[{"from":"path","as":"parentID","ignored":true,"repeated":true},{"from":"path","as":"childID"}]`, "cannot be anything else"},
+		{"also an overwrite", `[{"from":"path","as":"parentID","ignored":true,"into":"Field"},{"from":"path","as":"childID"}]`, "cannot be anything else"},
+		{"also whole", `[{"from":"path","as":"parentID","ignored":true,"whole":true},{"from":"path","as":"childID"}]`, "cannot be anything else"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			raw := `{"operations":{"remove_child":{
