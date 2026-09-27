@@ -2,8 +2,10 @@
 
 Postgres entity-graph design lands here: schema (`entities`/`relationships`
 tables), the `DataManager`/`SchemaManager` contract, and the recursive-CTE
-traversal approach that replaces AQL graph traversal. Empty at bootstrap —
-populate alongside S2–S5.
+traversal approach that replaces AQL graph traversal — see `CLAUDE.md`'s
+"Key invariants" and `postgres/`'s own doc comments; S2–S6 (`todo_done.md`)
+landed the code with no separate design doc, since the interfaces were
+ported near-verbatim from `CodeValdSharedLib/entitygraph`.
 
 [declared-domains.md](declared-domains.md) — the reference for `spec/` and
 `specstore/`: what a module's blueprint declares, what a domain's spec adds,
