@@ -3,6 +3,7 @@ package dispatch
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -22,7 +23,13 @@ type Deps struct {
 	Fallback int
 
 	Fields map[string]FieldDoc
+
+	Authorize Authorizer
 }
+
+type Authorizer func(ctx context.Context, action string) error
+
+var ErrForbidden = errors.New("dispatch: the caller may not perform that action")
 
 var ctxType = reflect.TypeOf((*context.Context)(nil)).Elem()
 
@@ -68,7 +75,7 @@ func Dispatch(s *Spec, d Deps) ([]Route, error) {
 			Method:  op.Method,
 			Path:    s.Base + op.Path,
 			Action:  op.Action,
-			Handler: handlerFor(op, method, table, fallback),
+			Handler: handlerFor(op, method, table, fallback, d.Authorize),
 		})
 	}
 	if len(problems) > 0 {
@@ -133,8 +140,15 @@ func checkSignature(name string, op Operation, t reflect.Type) error {
 
 const opaque = "internal error"
 
-func handlerFor(op Operation, method reflect.Value, table map[error]int, fallback int) http.HandlerFunc {
+func handlerFor(op Operation, method reflect.Value, table map[error]int, fallback int, authorize Authorizer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if authorize != nil {
+			if err := authorize(r.Context(), op.Action); err != nil {
+				httpwire.WriteErr(w, http.StatusForbidden, ErrForbidden.Error())
+				return
+			}
+		}
+
 		args, err := bind(op, method.Type(), r)
 		if err != nil {
 			httpwire.WriteErr(w, http.StatusBadRequest, err.Error())

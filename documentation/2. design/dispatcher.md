@@ -45,6 +45,29 @@ rather than only in an implementation.
 an action in an allowlist and the endpoint you meant to publish simply stays
 gated. A mount should fail its own startup on a non-empty `Unmatched`.
 
+**An authorizer refuses per caller, on both surfaces.** `Deps.Authorize` is
+`func(ctx, action string) error`, and because the dispatcher already holds
+each operation's action, one implementation gates the HTTP routes and the MCP
+tools together — a module converted later is gated the day it declares its
+operations, rather than when somebody remembers to gate it at the mount.
+
+Three properties are pinned by `authorize_test.go`, each mutation-checked:
+
+- **Nil is exactly today.** A module mounting without an authorizer behaves
+  as it always did. This is what let the hook land without touching catalog,
+  agency, permissions or wakala-api, all four of which still build and test
+  green against it unchanged.
+- **The gate runs before the arguments are read.** A caller with no
+  permission is refused whether or not it sent nonsense, so a refusal never
+  doubles as an argument oracle. Removing the check makes the tool answer
+  *takes no argument "nonsense"* instead, which is the leak.
+- **The refusal says nothing.** HTTP answers a bare 403 and MCP returns
+  `ErrForbidden`; neither repeats the action or the authorizer's own reason.
+
+`Anonymous` and `Authorize` answer different questions and compose: the first
+is *may this be served with no caller at all*, the second is *may this caller
+serve it*. A public action skips the authorizer because it never had one.
+
 ## Binding
 
 `args` is positional and matches the method signature after `ctx`.

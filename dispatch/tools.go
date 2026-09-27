@@ -103,7 +103,7 @@ func Tools(s *Spec, d Deps) ([]Tool, error) {
 			Description: op.Description,
 			Action:      op.Action,
 			InputSchema: schema,
-			Invoke:      invokerFor(op, plan, props, method, table, fallback),
+			Invoke:      invokerFor(op, plan, props, method, table, fallback, d.Authorize),
 		})
 	}
 	if len(problems) > 0 {
@@ -383,7 +383,7 @@ func jsonKey(f reflect.StructField) string {
 	return name
 }
 
-func invokerFor(op Operation, plan []slot, props []property, method reflect.Value, table map[error]int, fallback int) func(context.Context, json.RawMessage) (any, error) {
+func invokerFor(op Operation, plan []slot, props []property, method reflect.Value, table map[error]int, fallback int, authorize Authorizer) func(context.Context, json.RawMessage) (any, error) {
 	known := map[string]bool{}
 	required := map[string]bool{}
 	for _, p := range props {
@@ -392,6 +392,12 @@ func invokerFor(op Operation, plan []slot, props []property, method reflect.Valu
 	}
 
 	return func(ctx context.Context, raw json.RawMessage) (any, error) {
+		if authorize != nil {
+			if err := authorize(ctx, op.Action); err != nil {
+				return nil, ErrForbidden
+			}
+		}
+
 		in, err := arguments(raw)
 		if err != nil {
 			return nil, err
