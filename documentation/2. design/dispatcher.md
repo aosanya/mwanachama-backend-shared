@@ -80,6 +80,7 @@ serve it*. A public action skips the authorizer because it never had one.
 | `{from: path, as: x, into: Field}` | overwrites a field on the whole parameter |
 | `{from: path, as: x, ignored: true}` | an address segment the call does not take |
 | `{from: caller, as: x}` | the authenticated caller, supplied by the mount |
+| `{from: caller, as: x, into: Field}` | the caller overwrites a field on the whole parameter |
 
 `whole` exists because managers take domain structs — `UpsertEntry(ctx, Entry)`,
 `ListEntries(ctx, ListFilter)` — not loose scalars. A whole body decodes with
@@ -113,10 +114,22 @@ caller chose. Declaring the argument `from: caller` binds it from
 can reach it. It is also kept out of every MCP tool schema, so no agent is
 offered the field either. A mount that supplies no `Caller` binds `""` — the
 honest answer for a module with no auth model of its own, and never the
-request's value. A caller argument may not be whole, repeated, ignored or an
-overwrite, must name something, and may not be marked `required`, since no
-request can be required to supply what no request provides. Added 2026-09-27
-for `mwanachama-backend-catalog`'s CAT12.
+request's value. A caller argument may not be whole, repeated or ignored, must
+name something, and may not be marked `required`, since no request can be
+required to supply what no request provides. Added 2026-09-27 for
+`mwanachama-backend-catalog`'s CAT12.
+
+**A caller may also overwrite a field on a whole body**, which is how the same
+rule reaches a manager that takes a domain struct rather than loose scalars —
+`CreateGrant(ctx, Grant)`, where the actor field is one field inside the body
+the caller sent. `{from: caller, as: granted_by, into: GrantedBy}` binds it
+after the body is decoded, exactly as a path overwrite does, so the body's own
+value is replaced rather than merely ignored. `into` therefore accepts `path`
+and `caller` and nothing else: those are the two things that may outrank the
+body. Such an argument is kept out of the tool schema on both paths — the
+overwrite loop skips it, and `flatten` already treats every overwritten field
+as not-a-property — so the field is unreachable from MCP as well as from HTTP.
+Added 2026-09-27 for `mwanachama-backend-permissions`' PM5.
 
 ## What the spec is refused for
 

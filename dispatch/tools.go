@@ -190,7 +190,7 @@ func properties(op Operation, plan []slot, docs map[string]FieldDoc) ([]property
 	}
 
 	for _, a := range op.Args {
-		if a.positional() || a.Ignored {
+		if a.positional() || a.Ignored || a.From == FromCaller {
 			continue
 		}
 		target, ok := wholeStruct(plan)
@@ -482,7 +482,7 @@ func bindTool(ctx context.Context, op Operation, plan []slot, in map[string]json
 	}
 
 	if whole >= 0 {
-		if err := overwriteFromArgs(op, out[whole], in); err != nil {
+		if err := overwriteFromArgs(ctx, op, out[whole], in, caller); err != nil {
 			return nil, err
 		}
 	}
@@ -553,7 +553,7 @@ func listOfOne(raw json.RawMessage) ([]json.RawMessage, error) {
 	return []json.RawMessage{raw}, nil
 }
 
-func overwriteFromArgs(op Operation, target reflect.Value, in map[string]json.RawMessage) error {
+func overwriteFromArgs(ctx context.Context, op Operation, target reflect.Value, in map[string]json.RawMessage, caller Caller) error {
 	for _, a := range op.Args {
 		if a.Into == "" {
 			continue
@@ -561,6 +561,14 @@ func overwriteFromArgs(op Operation, target reflect.Value, in map[string]json.Ra
 		field := target.FieldByName(a.Into)
 		if !field.IsValid() || !field.CanSet() {
 			return fmt.Errorf("%s has no settable field %s", target.Type(), a.Into)
+		}
+		if a.From == FromCaller {
+			v, err := fromText(callerOf(ctx, caller), field.Type(), a.As)
+			if err != nil {
+				return err
+			}
+			field.Set(v)
+			continue
 		}
 		v, err := valueFromArgs(field.Type(), in[a.As], a.As)
 		if err != nil {

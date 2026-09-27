@@ -240,14 +240,14 @@ func bind(op Operation, t reflect.Type, r *http.Request, caller Caller) ([]refle
 	}
 
 	if whole >= 0 {
-		if err := overwrite(op, out[whole], r); err != nil {
+		if err := overwrite(op, out[whole], r, caller); err != nil {
 			return nil, err
 		}
 	}
 	return out, nil
 }
 
-func overwrite(op Operation, target reflect.Value, r *http.Request) error {
+func overwrite(op Operation, target reflect.Value, r *http.Request, caller Caller) error {
 	for _, a := range op.Args {
 		if a.Into == "" {
 			continue
@@ -256,7 +256,11 @@ func overwrite(op Operation, target reflect.Value, r *http.Request) error {
 		if !field.IsValid() || !field.CanSet() {
 			return fmt.Errorf("%s has no settable field %s", target.Type(), a.Into)
 		}
-		v, err := fromText(r.PathValue(a.As), field.Type(), a.As)
+		text := r.PathValue(a.As)
+		if a.From == FromCaller {
+			text = callerOf(r.Context(), caller)
+		}
+		v, err := fromText(text, field.Type(), a.As)
 		if err != nil {
 			return err
 		}

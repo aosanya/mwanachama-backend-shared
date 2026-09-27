@@ -183,12 +183,15 @@ func (op Operation) validate(name string) []string {
 		}
 		if a.From == FromCaller {
 			switch {
-			case a.Whole || a.Repeated || a.Into != "" || a.Ignored:
+			case a.Whole || a.Repeated || a.Ignored:
 				add("operation %q: argument %d comes from the caller and cannot be anything else", name, i)
 			case a.As == "":
 				add("operation %q: argument %d comes from the caller and names nothing", name, i)
 			case a.Required:
 				add("operation %q: argument %q comes from the caller, which no request can be required to supply", name, a.As)
+			}
+			if a.Into != "" {
+				overwrites++
 			}
 			continue
 		}
@@ -209,7 +212,7 @@ func (op Operation) validate(name string) []string {
 		}
 		if a.Into != "" {
 			if a.From != FromPath {
-				add("operation %q: argument %d overwrites %s from the %s, but only the address may outrank the body",
+				add("operation %q: argument %d overwrites %s from the %s, but only the address or the caller may outrank the body",
 					name, i, a.Into, a.From)
 			}
 			if a.Whole {
