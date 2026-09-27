@@ -64,6 +64,16 @@ Three properties are pinned by `authorize_test.go`, each mutation-checked:
 - **The refusal says nothing.** HTTP answers a bare 403 and MCP returns
   `ErrForbidden`; neither repeats the action or the authorizer's own reason.
 
+**What the authorizer cannot see: the arguments.** It is handed the action
+and the context, never the bound arguments, so it can answer *may this caller
+create a grant* but not *may this caller create this grant, in that scope*.
+On 2026-09-27 a subject whose authorizer admitted `permissions.grant.create`
+only in `instance:a` created a grant of an admin role in scope `*` through
+`mwanachama-backend-permissions`' generated `POST /grants`, and then passed
+`MayPerform` in `instance:b`. Any operation whose body names where it acts
+needs that checked by the module or by an argument-aware gate; it is filed as
+`mwanachama-backend-permissions`' PM5.
+
 `Anonymous` and `Authorize` answer different questions and compose: the first
 is *may this be served with no caller at all*, the second is *may this caller
 serve it*. A public action skips the authorizer because it never had one.
