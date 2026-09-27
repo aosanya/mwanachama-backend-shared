@@ -2,8 +2,8 @@
 
 Postgres entity-graph design lands here: schema (`entities`/`relationships`
 tables), the `DataManager`/`SchemaManager` contract, and the recursive-CTE
-traversal approach that replaces AQL graph traversal. Empty at bootstrap —
-populate alongside S2–S5.
+traversal approach that replaces AQL graph traversal (S2–S5, landed
+2026-09-02 — see [3. implementation/todo_done.md](../3.%20implementation/todo_done.md)).
 
 [declared-domains.md](declared-domains.md) — the reference for `spec/` and
 `specstore/`: what a module's blueprint declares, what a domain's spec adds,
