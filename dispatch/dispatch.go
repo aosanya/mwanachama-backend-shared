@@ -25,9 +25,13 @@ type Deps struct {
 	Fields map[string]FieldDoc
 
 	Authorize Authorizer
+
+	Caller Caller
 }
 
 type Authorizer func(ctx context.Context, action string) error
+
+type Caller func(ctx context.Context) string
 
 var ErrForbidden = errors.New("dispatch: the caller may not perform that action")
 
@@ -75,7 +79,7 @@ func Dispatch(s *Spec, d Deps) ([]Route, error) {
 			Method:  op.Method,
 			Path:    s.Base + op.Path,
 			Action:  op.Action,
-			Handler: handlerFor(op, method, table, fallback, d.Authorize),
+			Handler: handlerFor(op, method, table, fallback, d.Authorize, d.Caller),
 		})
 	}
 	if len(problems) > 0 {
@@ -140,7 +144,7 @@ func checkSignature(name string, op Operation, t reflect.Type) error {
 
 const opaque = "internal error"
 
-func handlerFor(op Operation, method reflect.Value, table map[error]int, fallback int, authorize Authorizer) http.HandlerFunc {
+func handlerFor(op Operation, method reflect.Value, table map[error]int, fallback int, authorize Authorizer, caller Caller) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if authorize != nil {
 			if err := authorize(r.Context(), op.Action); err != nil {
@@ -149,7 +153,7 @@ func handlerFor(op Operation, method reflect.Value, table map[error]int, fallbac
 			}
 		}
 
-		args, err := bind(op, method.Type(), r)
+		args, err := bind(op, method.Type(), r, caller)
 		if err != nil {
 			httpwire.WriteErr(w, http.StatusBadRequest, err.Error())
 			return
@@ -189,7 +193,7 @@ func render(w http.ResponseWriter, op Operation, values []reflect.Value) {
 	httpwire.WriteJSON(w, op.status(), body)
 }
 
-func bind(op Operation, t reflect.Type, r *http.Request) ([]reflect.Value, error) {
+func bind(op Operation, t reflect.Type, r *http.Request, caller Caller) ([]reflect.Value, error) {
 	var body map[string]json.RawMessage
 	if needsBody(op) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -228,7 +232,7 @@ func bind(op Operation, t reflect.Type, r *http.Request) ([]reflect.Value, error
 			}
 			continue
 		}
-		v, err := bindOne(a, want, r, body)
+		v, err := bindOne(a, want, r, body, caller)
 		if err != nil {
 			return nil, err
 		}
@@ -332,8 +336,10 @@ func wholeValue(a Arg, want reflect.Type, r *http.Request) (reflect.Value, error
 	return wholeBody(want, r)
 }
 
-func bindOne(a Arg, want reflect.Type, r *http.Request, body map[string]json.RawMessage) (reflect.Value, error) {
+func bindOne(a Arg, want reflect.Type, r *http.Request, body map[string]json.RawMessage, caller Caller) (reflect.Value, error) {
 	switch a.From {
+	case FromCaller:
+		return fromText(callerOf(r.Context(), caller), want, a.As)
 	case FromPath:
 		return fromText(r.PathValue(a.As), want, a.As)
 	case FromQuery:
@@ -386,4 +392,11 @@ func fromTexts(values []string, want reflect.Type, name string) (reflect.Value, 
 		return reflect.Zero(want), nil
 	}
 	return fromText(values[0], want, name)
+}
+
+func callerOf(ctx context.Context, caller Caller) string {
+	if caller == nil {
+		return ""
+	}
+	return caller(ctx)
 }

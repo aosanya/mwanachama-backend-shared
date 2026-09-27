@@ -103,7 +103,7 @@ func Tools(s *Spec, d Deps) ([]Tool, error) {
 			Description: op.Description,
 			Action:      op.Action,
 			InputSchema: schema,
-			Invoke:      invokerFor(op, plan, props, method, table, fallback, d.Authorize),
+			Invoke:      invokerFor(op, plan, props, method, table, fallback, d.Authorize, d.Caller),
 		})
 	}
 	if len(problems) > 0 {
@@ -156,6 +156,9 @@ func properties(op Operation, plan []slot, docs map[string]FieldDoc) ([]property
 	}
 
 	for _, sl := range plan {
+		if sl.arg.From == FromCaller {
+			continue
+		}
 		if !sl.arg.Whole {
 			doc := docs[sl.arg.Field]
 			schema := schemaFor(sl.typ, docs, 0)
@@ -383,7 +386,7 @@ func jsonKey(f reflect.StructField) string {
 	return name
 }
 
-func invokerFor(op Operation, plan []slot, props []property, method reflect.Value, table map[error]int, fallback int, authorize Authorizer) func(context.Context, json.RawMessage) (any, error) {
+func invokerFor(op Operation, plan []slot, props []property, method reflect.Value, table map[error]int, fallback int, authorize Authorizer, caller Caller) func(context.Context, json.RawMessage) (any, error) {
 	known := map[string]bool{}
 	required := map[string]bool{}
 	for _, p := range props {
@@ -413,7 +416,7 @@ func invokerFor(op Operation, plan []slot, props []property, method reflect.Valu
 			}
 		}
 
-		args, err := bindTool(op, plan, in)
+		args, err := bindTool(ctx, op, plan, in, caller)
 		if err != nil {
 			return nil, err
 		}
@@ -442,10 +445,18 @@ func arguments(raw json.RawMessage) (map[string]json.RawMessage, error) {
 	return in, nil
 }
 
-func bindTool(op Operation, plan []slot, in map[string]json.RawMessage) ([]reflect.Value, error) {
+func bindTool(ctx context.Context, op Operation, plan []slot, in map[string]json.RawMessage, caller Caller) ([]reflect.Value, error) {
 	out := make([]reflect.Value, 0, len(plan))
 	whole := -1
 	for _, sl := range plan {
+		if sl.arg.From == FromCaller {
+			v, err := fromText(callerOf(ctx, caller), sl.typ, sl.arg.As)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, v)
+			continue
+		}
 		if sl.arg.Whole {
 			v, err := wholeFromArgs(op, sl, in)
 			if err != nil {

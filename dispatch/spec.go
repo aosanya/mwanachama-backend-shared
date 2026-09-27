@@ -13,12 +13,13 @@ import (
 type Source string
 
 const (
-	FromPath  Source = "path"
-	FromQuery Source = "query"
-	FromBody  Source = "body"
+	FromPath   Source = "path"
+	FromQuery  Source = "query"
+	FromBody   Source = "body"
+	FromCaller Source = "caller"
 )
 
-var sources = map[Source]bool{FromPath: true, FromQuery: true, FromBody: true}
+var sources = map[Source]bool{FromPath: true, FromQuery: true, FromBody: true, FromCaller: true}
 
 var methods = map[string]bool{
 	http.MethodGet: true, http.MethodPost: true, http.MethodPut: true,
@@ -178,7 +179,18 @@ func (op Operation) validate(name string) []string {
 	overwrites := 0
 	for i, a := range op.Args {
 		if !sources[a.From] {
-			add("operation %q: argument %d comes from %q, which is not path, query or body", name, i, a.From)
+			add("operation %q: argument %d comes from %q, which is not path, query, body or caller", name, i, a.From)
+		}
+		if a.From == FromCaller {
+			switch {
+			case a.Whole || a.Repeated || a.Into != "" || a.Ignored:
+				add("operation %q: argument %d comes from the caller and cannot be anything else", name, i)
+			case a.As == "":
+				add("operation %q: argument %d comes from the caller and names nothing", name, i)
+			case a.Required:
+				add("operation %q: argument %q comes from the caller, which no request can be required to supply", name, a.As)
+			}
+			continue
 		}
 		if a.Ignored {
 			switch {

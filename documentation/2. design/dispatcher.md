@@ -79,6 +79,7 @@ serve it*. A public action skips the authorizer because it never had one.
 | `{from: body\|query, whole: true}` | the entire request becomes one parameter |
 | `{from: path, as: x, into: Field}` | overwrites a field on the whole parameter |
 | `{from: path, as: x, ignored: true}` | an address segment the call does not take |
+| `{from: caller, as: x}` | the authenticated caller, supplied by the mount |
 
 `whole` exists because managers take domain structs — `UpsertEntry(ctx, Entry)`,
 `ListEntries(ctx, ListFilter)` — not loose scalars. A whole body decodes with
@@ -103,6 +104,19 @@ child. Declaring the parent `ignored` says so, and the rule stays strict for
 everything else. An ignored argument takes no position in the call and becomes
 no tool parameter; it may only come from the path, must name a wildcard the
 path declares, and may not also be whole, repeated or an overwrite.
+
+**`caller` is the seam for an actor field the request must not set.** An
+operation recording who did something — a share link's issuer, a grant's
+grantor — cannot read that from the body, or the audit trail names whoever the
+caller chose. Declaring the argument `from: caller` binds it from
+`Deps.Caller func(ctx) string` instead: the mount supplies it, and no request
+can reach it. It is also kept out of every MCP tool schema, so no agent is
+offered the field either. A mount that supplies no `Caller` binds `""` — the
+honest answer for a module with no auth model of its own, and never the
+request's value. A caller argument may not be whole, repeated, ignored or an
+overwrite, must name something, and may not be marked `required`, since no
+request can be required to supply what no request provides. Added 2026-09-27
+for `mwanachama-backend-catalog`'s CAT12.
 
 ## What the spec is refused for
 
