@@ -60,6 +60,9 @@ const (
 	// TypeInt is a whole number.
 	TypeInt FieldType = "int"
 
+	// TypeFloat is a number with a fractional part.
+	TypeFloat FieldType = "float"
+
 	// TypeBool is true or false.
 	TypeBool FieldType = "bool"
 
@@ -75,8 +78,8 @@ const (
 )
 
 var fieldTypes = map[FieldType]bool{
-	TypeString: true, TypeText: true, TypeInt: true, TypeBool: true,
-	TypeJSON: true, TypeTimestamp: true, TypeEnum: true,
+	TypeString: true, TypeText: true, TypeInt: true, TypeFloat: true,
+	TypeBool: true, TypeJSON: true, TypeTimestamp: true, TypeEnum: true,
 }
 
 // Field is one column on one object.
@@ -101,6 +104,11 @@ type Field struct {
 
 	// Immutable rejects a change after creation.
 	Immutable bool `json:"immutable,omitempty"`
+
+	// Nullable keeps "no value" distinguishable from the zero one. The column
+	// takes no default, so a row that was never written holds NULL rather
+	// than 0, false or "", and the Go field carrying it is a pointer.
+	Nullable bool `json:"nullable,omitempty"`
 
 	// Default is the value a row takes when the field is absent.
 	Default string `json:"default,omitempty"`

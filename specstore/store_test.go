@@ -94,6 +94,8 @@ func TestColumnName(t *testing.T) {
 		{"Slug", "slug"},
 		{"SubmittedBy", "submitted_by"},
 		{"RunID", "run_id"},
+		{"OptionIDs", "option_ids"},
+		{"StalledChapterIDs", "stalled_chapter_ids"},
 		{"SuggestionID", "suggestion_id"},
 		{"KeyHash", "key_hash"},
 		{"ModuleConfigs", "module_configs"},

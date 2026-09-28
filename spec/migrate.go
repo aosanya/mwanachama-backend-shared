@@ -74,6 +74,8 @@ func (f Field) columnType(dialect string) string {
 	switch f.Type {
 	case TypeInt:
 		return "bigint"
+	case TypeFloat:
+		return "double precision"
 	case TypeBool:
 		return "boolean"
 	case TypeJSON:
@@ -95,17 +97,19 @@ func (f Field) columnType(dialect string) string {
 func (f Field) defaultClause() string {
 	switch {
 	case f.Default != "":
-		if f.Type == TypeInt || f.Type == TypeBool {
+		if f.Type == TypeInt || f.Type == TypeFloat || f.Type == TypeBool {
 			return "default " + f.Default
 		}
 		return "default '" + strings.ReplaceAll(f.Default, "'", "''") + "'"
 
 	// A required field with a default is a contradiction: the default is
 	// exactly what stops an omitted value being noticed. The convenience
-	// defaults below are for optional columns only.
-	case f.Required, f.Primary, f.Type == TypeJSON:
+	// defaults below are for optional columns only. A nullable column is
+	// excluded for the opposite reason: a default is what would stop NULL
+	// ever being stored, which is the whole point of declaring it nullable.
+	case f.Required, f.Primary, f.Nullable, f.Type == TypeJSON:
 		return ""
-	case f.Type == TypeInt:
+	case f.Type == TypeInt, f.Type == TypeFloat:
 		return "default 0"
 	case f.Type == TypeBool:
 		return "default false"

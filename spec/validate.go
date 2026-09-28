@@ -153,6 +153,14 @@ func (o Object) validate() []string {
 			add("object %q: field %q is required and carries the default %q, and a default is exactly what would let an omitted value pass unnoticed",
 				o.Name, f.Name, f.Default)
 		}
+		if f.Nullable && (f.Required || f.Primary) {
+			add("object %q: field %q is nullable and also required, and a column that must hold a value cannot be one whose absence is meaningful",
+				o.Name, f.Name)
+		}
+		if f.Nullable && f.Default != "" {
+			add("object %q: field %q is nullable and carries the default %q, which is exactly what would stop the absence ever being stored",
+				o.Name, f.Name, f.Default)
+		}
 		if f.Primary {
 			primaries++
 		}

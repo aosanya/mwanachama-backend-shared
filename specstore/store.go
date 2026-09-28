@@ -2,6 +2,7 @@ package specstore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -51,23 +52,38 @@ func New(db *gorm.DB, s *spec.Spec, carriers map[string]any) (*Store, error) {
 }
 
 func disagreements(o spec.Object, carrier any) []string {
-	declared := map[string]bool{}
+	t := reflect.TypeOf(carrier)
+
+	declared := make(map[string]spec.Field, len(o.Fields))
 	for _, f := range o.Fields {
-		declared[f.Name] = true
+		declared[f.Name] = f
 	}
-	carried := ColumnsOf(reflect.TypeOf(carrier))
+	carried := make(map[string]reflect.StructField, t.NumField())
+	for i := 0; i < t.NumField(); i++ {
+		if f := t.Field(i); f.PkgPath == "" {
+			carried[ColumnName(f.Name)] = f
+		}
+	}
 
 	var out []string
 	for name := range declared {
-		if !carried[name] {
-			out = append(out, fmt.Sprintf("%s declares %q, which %s does not carry",
-				o.Name, name, reflect.TypeOf(carrier)))
+		if _, ok := carried[name]; !ok {
+			out = append(out, fmt.Sprintf("%s declares %q, which %s does not carry", o.Name, name, t))
 		}
 	}
-	for name := range carried {
-		if !declared[name] {
-			out = append(out, fmt.Sprintf("%s carries %q, which the object %q does not declare",
-				reflect.TypeOf(carrier), name, o.Name))
+	for name, held := range carried {
+		f, ok := declared[name]
+		if !ok {
+			out = append(out, fmt.Sprintf("%s carries %q, which the object %q does not declare", t, name, o.Name))
+			continue
+		}
+		switch pointer := held.Type.Kind() == reflect.Pointer; {
+		case f.Nullable && !pointer:
+			out = append(out, fmt.Sprintf("%s declares %q nullable and %s carries it as %s, so a stored NULL would read back as the zero value",
+				o.Name, name, t, held.Type))
+		case pointer && !f.Nullable:
+			out = append(out, fmt.Sprintf("%s carries %q as %s and the object %q does not declare it nullable, so an absent value would be written as the zero one",
+				t, name, held.Type, o.Name))
 		}
 	}
 	return out
@@ -146,7 +162,11 @@ func ColumnName(field string) string {
 		upper := r >= 'A' && r <= 'Z'
 		if upper && i > 0 {
 			prevLower := runes[i-1] >= 'a' && runes[i-1] <= 'z' || runes[i-1] >= '0' && runes[i-1] <= '9'
-			nextLower := i+1 < len(runes) && runes[i+1] >= 'a' && runes[i+1] <= 'z'
+			// A lone trailing "s" pluralises the run it follows rather than
+			// starting a word of its own, so OptionIDs is option_ids and not
+			// option_i_ds. Every other lowercase after a run does start one.
+			plural := i+2 == len(runes) && runes[i+1] == 's'
+			nextLower := i+1 < len(runes) && runes[i+1] >= 'a' && runes[i+1] <= 'z' && !plural
 			if prevLower || nextLower {
 				b.WriteByte('_')
 			}
@@ -177,22 +197,57 @@ func Encode(o spec.Object, v any) (map[string]any, error) {
 		if !ok {
 			return nil, fmt.Errorf("encode %s: nothing carries %q", o.Name, f.Name)
 		}
-		switch f.Type {
-		case spec.TypeInt:
-			row[f.Name] = fv.Int()
-		case spec.TypeBool:
-			row[f.Name] = fv.Bool()
-		case spec.TypeJSON:
-			if s := fv.String(); s != "" {
-				row[f.Name] = s
-			} else {
-				row[f.Name] = nil
-			}
-		default:
-			row[f.Name] = fv.String()
+		cell, err := cell(f, fv)
+		if err != nil {
+			return nil, fmt.Errorf("encode %s.%s: %w", o.Name, f.Name, err)
 		}
+		row[f.Name] = cell
 	}
 	return row, nil
+}
+
+func cell(f spec.Field, fv reflect.Value) (any, error) {
+	if fv.Kind() == reflect.Pointer {
+		if fv.IsNil() {
+			return nil, nil
+		}
+		fv = fv.Elem()
+	}
+	switch f.Type {
+	case spec.TypeInt:
+		return fv.Int(), nil
+	case spec.TypeFloat:
+		return fv.Float(), nil
+	case spec.TypeBool:
+		return fv.Bool(), nil
+	case spec.TypeJSON:
+		return document(fv)
+	default:
+		return fv.String(), nil
+	}
+}
+
+// document renders a json column's value. A string is already the document
+// and is stored as it stands; anything else is marshalled. Empty is SQL
+// NULL, which is what keeps a column never written apart from one holding
+// an empty document.
+func document(fv reflect.Value) (any, error) {
+	switch fv.Kind() {
+	case reflect.String:
+		if s := fv.String(); s != "" {
+			return s, nil
+		}
+		return nil, nil
+	case reflect.Slice, reflect.Array, reflect.Map:
+		if fv.Len() == 0 {
+			return nil, nil
+		}
+	}
+	raw, err := json.Marshal(fv.Interface())
+	if err != nil {
+		return nil, err
+	}
+	return string(raw), nil
 }
 
 func Decode(o spec.Object, row map[string]any, out any) error {
@@ -232,6 +287,14 @@ func fieldsByColumn(rv reflect.Value) map[string]reflect.Value {
 }
 
 func assign(field reflect.Value, raw any) error {
+	if field.Kind() == reflect.Pointer {
+		held := reflect.New(field.Type().Elem())
+		if err := assign(held.Elem(), raw); err != nil {
+			return err
+		}
+		field.Set(held)
+		return nil
+	}
 	switch field.Kind() {
 	case reflect.String:
 		switch v := raw.(type) {
@@ -262,8 +325,37 @@ func assign(field reflect.Value, raw any) error {
 		default:
 			return fmt.Errorf("cannot read %T as a number", raw)
 		}
+	case reflect.Float32, reflect.Float64:
+		switch v := raw.(type) {
+		case float64:
+			field.SetFloat(v)
+		case float32:
+			field.SetFloat(float64(v))
+		case int64:
+			field.SetFloat(float64(v))
+		default:
+			return fmt.Errorf("cannot read %T as a number", raw)
+		}
+	case reflect.Slice, reflect.Array, reflect.Map, reflect.Struct:
+		return unmarshal(field, raw)
 	default:
 		return fmt.Errorf("no rule for a %s field", field.Kind())
 	}
 	return nil
+}
+
+func unmarshal(field reflect.Value, raw any) error {
+	var data []byte
+	switch v := raw.(type) {
+	case string:
+		data = []byte(v)
+	case []byte:
+		data = v
+	default:
+		return fmt.Errorf("cannot read %T as a document", raw)
+	}
+	if len(data) == 0 {
+		return nil
+	}
+	return json.Unmarshal(data, field.Addr().Interface())
 }
