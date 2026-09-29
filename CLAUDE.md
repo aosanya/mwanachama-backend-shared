@@ -92,6 +92,17 @@ against Postgres's 63-byte limit, which truncates silently. The `matches`
 pattern registry stays per module — the spec names a pattern, the module says
 what the name means.
 
+**A second mount of the same module adds a fourth segment** (S26,
+2026-09-29): `<instance>_<module>_<mount>_<table>`, so one instance can hold
+a supplier catalog and a product catalog without them sharing tables.
+`DefaultMount` (`main`) **is elided**, so every pre-mount name is byte-for-byte
+unchanged and adopting mounts migrates nothing — and a module that renames a
+pre-spec database forward must treat prior names as legacy *only* for the
+default mount, or a second mount adopts the first's data. The 63-byte budget
+is nearly spent (catalog sits at 62 today), so a second mount does not fit
+everywhere; S28 tracks the index-naming change that would buy it back. See
+[declared-domains.md](documentation/2.%20design/declared-domains.md).
+
 `mwanachama-backend-catalog` is the first consumer and
 `mwanachama-backend-agency` the second (AGD-007 there). The org-wide strategy
 this serves is `developer/documentation/2. design/architecture-spec-driven-modules.md`;
