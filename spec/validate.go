@@ -17,13 +17,14 @@ func (s *Spec) Validate() error {
 	var problems []string
 	add := func(format string, a ...any) { problems = append(problems, fmt.Sprintf(format, a...)) }
 
-	// Both are segments of every physical name this spec emits, so both are
-	// held to the stricter alphabet rather than to NamePattern.
 	if !SegmentPattern.MatchString(s.Instance) {
 		add("instance %q is not a usable name segment", s.Instance)
 	}
 	if !SegmentPattern.MatchString(s.Module) {
 		add("module %q is not a usable name segment", s.Module)
+	}
+	if !SegmentPattern.MatchString(s.MountName()) {
+		add("mount %q is not a usable name segment", s.MountName())
 	}
 	if len(s.Objects) == 0 {
 		add("a spec declares at least one object")

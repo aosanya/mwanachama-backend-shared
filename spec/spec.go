@@ -31,13 +31,9 @@ import (
 // excluded from the alphabet outright rather than escaped.
 var NamePattern = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
 
-// SegmentPattern is the shape of the instance and module segments, which is
-// [NamePattern] minus the underscore. A physical name is
-// <instance>_<module>_<table>, and with the separator legal inside the first
-// two segments that name could not be read back apart — a_b_c_goals does not
-// say which part is the instance. The object's own table name is last, so it
-// keeps its underscores.
 var SegmentPattern = regexp.MustCompile(`^[a-z][a-z0-9]*$`)
+
+const DefaultMount = "main"
 
 // MaxIdentifier is Postgres's identifier limit. It matters because the
 // database does not complain: NAMEDATALEN-1 is 63 bytes and anything longer
@@ -170,8 +166,6 @@ type Object struct {
 	// storage the domain asked for and nothing else.
 	Role string `json:"role,omitempty"`
 
-	// Table is the table's name within the instance. The instance prefix is
-	// added by [Spec.TableFor].
 	Table string `json:"table"`
 
 	Fields  []Field `json:"fields"`
@@ -190,7 +184,16 @@ type Spec struct {
 	// Instance prefixes every table, so several domains share a database.
 	Instance string `json:"instance"`
 
+	Mount string `json:"mount,omitempty"`
+
 	Objects []Object `json:"objects"`
+}
+
+func (s *Spec) MountName() string {
+	if s.Mount == "" {
+		return DefaultMount
+	}
+	return s.Mount
 }
 
 // Load reads and validates a spec. A spec that does not validate is refused
@@ -225,23 +228,10 @@ func decode(raw []byte, into any) error {
 // alphabet and same reason as a name: it reaches SQL as text.
 var DocPathPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$`)
 
-// TableFor returns the physical table name for one object:
-// <instance>_<module>_<table>, e.g. agency_catalog_agencies.
-//
-// The module segment is what lets two modules share one database without
-// arranging not to collide. Without it, a catalog instance named "agency"
-// and an agency instance of the same name both want agency_agencies, and
-// nothing in either module would notice: GORM's AutoMigrate adopts a table
-// that already exists and adds the missing columns, and this package's own
-// "create table if not exists" is a no-op against one.
 func (s *Spec) TableFor(o Object) string {
-	return s.Instance + "_" + s.Module + "_" + o.table()
+	return s.Instance + "_" + s.Module + "_" + s.MountName() + "_" + o.table()
 }
 
-// IndexFor returns the physical index name for one index on one object.
-// Postgres keeps indexes in the same per-schema namespace as tables, so this
-// has to be unique across the whole database, not just its table — which is
-// why the table name is part of it.
 func (s *Spec) IndexFor(o Object, idx Index) string {
 	return s.TableFor(o) + "_" + idx.Name + "_idx"
 }
