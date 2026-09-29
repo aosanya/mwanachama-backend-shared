@@ -131,6 +131,14 @@ Constraints on the segments:
   both the separator and legal inside a segment, `a_b_c_d_goals` does not say
   which part is which. The object's own table name is last, so it keeps its
   underscores.
+  **That holds between segments, not across the elided default mount.** A
+  default-mount table whose name carries an underscore reads the same as a
+  mount named after its first word: agency's default `objective_modules` and
+  mount `objective`'s `modules` are both `<instance>_agency_objective_modules`,
+  and today `Validate` loads both specs (the 2026-09-29 security sweep: agency's
+  `Provision` of mount `objective` created 13 tables, then failed on a missing
+  `code` column in the default mount's table). Open as S28, pinned red by
+  `spec/mount_collision_security_test.go`.
 - Every emitted name is measured against `MaxIdentifier` (63). **Postgres
   truncates past it without complaining**, so two names agreeing that far are
   one relation. Index names are measured in the same namespace as tables,
