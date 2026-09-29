@@ -40,11 +40,11 @@ type Property struct {
 // Every value moved here from a named Settings field (DEV-1683 follow-up),
 // matching how mwanachama-backend-actor's phone/email are validated
 // Attributes entries rather than dedicated columns. None are Required —
-// the original database columns were all `NOT NULL DEFAULT ''`, never
-// actually enforced as mandatory at write time, so an org_settings row with
-// every value blank was always a valid state (an org that has not filled
-// its profile in yet). None are Unique — this table has one row per
-// deployment, so nothing is ever unique against.
+// the original database columns were all `NOT NULL` with an empty-string
+// default, never enforced as mandatory at write time, so an org_settings
+// row with every value blank was always a valid state (an org that has
+// not filled its profile in yet). None are Unique — this table has one
+// row per deployment, so nothing is ever unique against.
 func DefaultOrgSettingsProperties() []Property {
 	return []Property{
 		{Name: "display_name", Label: "Display name", Range: RangeText},

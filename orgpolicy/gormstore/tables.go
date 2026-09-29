@@ -55,7 +55,7 @@ func syncPolicyChecks(db *gorm.DB, table string) error {
 		return nil
 	}
 	checks := map[string]string{
-		table + "_singleton_check":               "singleton",
+		table + "_singleton_check":                "singleton",
 		table + "_public_address_cap_check":       "public_address_cap >= 0",
 		table + "_chapter_membership_cap_check":   "chapter_membership_cap >= 1",
 		table + "_free_text_max_length_cap_check": "free_text_max_length_cap >= 1",

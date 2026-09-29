@@ -60,9 +60,9 @@ func ValidateMaxLength(n, capValue int) error { return models.ValidateMaxLength(
 
 // Default* forward to their models. namesakes.
 const (
-	DefaultPublicAddressCap     = models.DefaultPublicAddressCap
+	DefaultPublicAddressCap       = models.DefaultPublicAddressCap
 	DefaultStructureMembershipCap = models.DefaultStructureMembershipCap
-	DefaultFreeTextMaxLengthCap = models.DefaultFreeTextMaxLengthCap
+	DefaultFreeTextMaxLengthCap   = models.DefaultFreeTextMaxLengthCap
 )
 
 // MemberExists is the one thing this package needs from the member domain:

@@ -21,8 +21,8 @@ type Backend struct {
 
 	entities       map[string]entitygraph.Entity       // by ID
 	relationships  map[string]entitygraph.Relationship // by ID
-	schemaDraft    *schema.Schema                       // the single mutable draft, nil until SetSchema
-	schemaVersions []schema.Schema                       // ascending version, published snapshots
+	schemaDraft    *schema.Schema                      // the single mutable draft, nil until SetSchema
+	schemaVersions []schema.Schema                     // ascending version, published snapshots
 }
 
 // NewBackend constructs an empty Backend.

@@ -50,9 +50,9 @@ func (s *Store) Get(ctx context.Context) (Policy, error) {
 	err := s.db.WithContext(ctx).Table(s.tables.Policy).Where("singleton").First(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return Policy{
-			PublicAddressCap:     models.DefaultPublicAddressCap,
+			PublicAddressCap:       models.DefaultPublicAddressCap,
 			StructureMembershipCap: models.DefaultStructureMembershipCap,
-			FreeTextMaxLengthCap: models.DefaultFreeTextMaxLengthCap,
+			FreeTextMaxLengthCap:   models.DefaultFreeTextMaxLengthCap,
 		}, nil
 	}
 	if err != nil {

@@ -83,13 +83,13 @@ func TestOrgPolicyCheckConstraintsRefuseAtTheDatabase(t *testing.T) {
 	tables := orgpolicy.DefaultTableNames()
 
 	if err := db.Exec(
-		"INSERT INTO "+tables.Policy+" (singleton, public_address_cap, chapter_membership_cap, free_text_max_length_cap) "+
+		"INSERT INTO " + tables.Policy + " (singleton, public_address_cap, chapter_membership_cap, free_text_max_length_cap) " +
 			"VALUES (true, -1, 5, 1000) ON CONFLICT (singleton) DO UPDATE SET public_address_cap = -1",
 	).Error; err == nil {
 		t.Error("the database accepted public_address_cap = -1; its CHECK should refuse it")
 	}
 	if err := db.Exec(
-		"UPDATE "+tables.Policy+" SET chapter_membership_cap = 0 WHERE singleton",
+		"UPDATE " + tables.Policy + " SET chapter_membership_cap = 0 WHERE singleton",
 	).Error; err == nil {
 		t.Error("the database accepted chapter_membership_cap = 0; its CHECK should refuse it")
 	}
