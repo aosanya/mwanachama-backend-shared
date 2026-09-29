@@ -229,6 +229,9 @@ func decode(raw []byte, into any) error {
 var DocPathPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$`)
 
 func (s *Spec) TableFor(o Object) string {
+	if s.MountName() == DefaultMount {
+		return s.Instance + "_" + s.Module + "_" + o.table()
+	}
 	return s.Instance + "_" + s.Module + "_" + s.MountName() + "_" + o.table()
 }
 

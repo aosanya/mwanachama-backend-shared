@@ -25,7 +25,7 @@ the module declared — a default, and nothing else.
 | The module's blueprint | A domain's spec |
 | --- | --- |
 | the roles that exist | which object fills each role, and what it is called |
-| every field: name, type, description, `required`/`unique`/`immutable`/`primary`, `values`, `matches` | `module`, `domain`, `instance`, and each object's `table` |
+| every field: name, type, description, `required`/`unique`/`immutable`/`primary`, `values`, `matches` | `module`, `domain`, `instance`, an optional `mount`, and each object's `table` |
 | the indexes every domain needs | its own indexes, including document-path ones over its own vocabulary |
 | — | a **default**, and nothing else, on a field it fills a role with |
 | — | objects of its own, which declare their own fields and take no role |
@@ -93,23 +93,79 @@ starting with a letter, words joined by single underscores. Never relax this
 to "escape it instead".
 
 A physical name is `<instance>_<module>_<table>` — `agency_catalog_agencies`,
-`agency_agency_goals`. The module segment is not decoration: without it a
-catalog instance named `agency` and an agency instance of the same name both
-want `agency_agencies`, and neither module notices, because `create table if
-not exists` is a no-op against a table that already exists and GORM's
-`AutoMigrate` would simply adopt it. That collision is silent data mixing,
-not an error, which is why `Validate` refuses it rather than leaving it to
-the database:
+`agency_agency_goals` — and `<instance>_<module>_<mount>_<table>` for a
+second mount of the same module. Each leading segment earns its place, and
+every one exists because the collision it prevents is **silent data mixing
+rather than an error**: `create table if not exists` is a no-op against a
+table that already exists, and GORM's `AutoMigrate` simply adopts one.
+Nothing in either module notices. That is why `Validate` refuses these cases
+rather than leaving them to the database.
 
-- `instance` and `module` match `SegmentPattern` — `NamePattern` minus the
-  underscore — so the three segments can be read back apart. With `_` both
-  the separator and legal inside a segment, `a_b_c_goals` does not say which
-  part is which.
+- **`instance`** separates tenants. It is the agency's `tableSlug()` for a
+  module mounted per agency, or the configured spec instance for a global one.
+- **`module`** separates modules. Without it a catalog instance named `agency`
+  and an agency instance of the same name both want `agency_agencies`.
+- **`mount`** separates two mounts of the *same* module within one instance —
+  a tenant with a supplier catalog and a product catalog. Without it both want
+  one table set.
+
+**The default mount is elided from the name, and this is load-bearing rather
+than cosmetic.** `Spec.MountName()` returns `DefaultMount` (`main`) when a
+spec declares no mount, and `TableFor` emits the segment only when the mount
+is *not* the default. Two consequences:
+
+- Every name that existed before mounts existed is unchanged, so adopting
+  mounts migrates no data at all. A second mount is new tables beside the
+  first, never a rename of it.
+- A module that provisions a pre-mount database forward (`forms`, `agency`)
+  must treat prior names as legacy **only for the default mount**. Without
+  that guard a second mount renames the first mount's tables into itself and
+  the first mount's data is silently adopted, which is the failure this whole
+  segment exists to prevent. Pinned by agency's
+  `TestASecondMountDoesNotAdoptTheDefaultMountsTables`.
+
+Constraints on the segments:
+
+- `instance`, `module` and `mount` match `SegmentPattern` — `NamePattern`
+  minus the underscore — so the segments can be read back apart. With `_`
+  both the separator and legal inside a segment, `a_b_c_d_goals` does not say
+  which part is which. The object's own table name is last, so it keeps its
+  underscores.
 - Every emitted name is measured against `MaxIdentifier` (63). **Postgres
   truncates past it without complaining**, so two names agreeing that far are
   one relation. Index names are measured in the same namespace as tables,
   because Postgres keeps them there and `<table>_<index>_idx` overflows
   before its own table does.
+
+### The budget is nearly exhausted, and a mount is what spends the rest
+
+Measured against the real instance slug `mwanachama-wakala-api` mints
+(`tableSlug()` = `"agy"` + 8 hex = 11 characters), the longest identifiers
+shipped today are:
+
+| bytes | identifier |
+| --- | --- |
+| 62 | `<slug11>_catalog_suggestion_comments_suggestion_created_idx` |
+| 61 | `<slug11>_taskmanager_workflow_runs_parent_workflow_run_idx` |
+| 60 | `<slug11>_taskmanager_task_project_memberships_project_idx` |
+
+Catalog is at **62 of 63** — one byte of headroom — and the longest names are
+index names, which come from the *blueprint* as often as from the domain
+spec, so counting only a domain spec's own indexes understates the worst case
+badly.
+
+This is why the default mount is elided: emitting a fourth segment
+unconditionally would have refused catalog and taskmanager outright for every
+real instance. It also means **a second mount is not available everywhere**.
+The mount segment costs `len(mount) + 1` bytes, so against an 11-character
+slug taskmanager admits a mount of up to 6 characters and catalog admits
+none at all. `Validate` reports this precisely, at load, naming the index and
+the byte count — it never truncates — so the refusal is safe, just limiting.
+
+Giving those modules a second mount means shortening how an index name is
+built (today `<table>_<index>_idx` repeats the whole table name, and Postgres
+only requires database-global uniqueness, not readability). That is a
+separate decision: it renames every index in every live database.
 - Every problem is reported, not just the first: a spec is edited by hand, and
   a list beats one round trip per mistake.
 
@@ -181,8 +237,8 @@ The order matters, because each step is verifiable on its own:
 1. **Declare the blueprint** from the existing row structs and their GORM
    tags, moving each field's Go doc comment into its `description`. Assert
    that it parses and covers every column the old migration creates.
-2. **Write the domain spec**, pick the instance, and move to
-   `<instance>_<module>_<table>` with a rename migration — plus the matching
+2. **Write the domain spec**, pick the instance and mount, and move to
+   `<instance>_<module>_<mount>_<table>` with a rename migration — plus the matching
    edit to the gateway's hand-maintained SQL mirror, which is what lets
    `cmd/migrate up` still provision a fresh database.
 3. **Replace the store**: `specstore.New` with one carrier per role, the

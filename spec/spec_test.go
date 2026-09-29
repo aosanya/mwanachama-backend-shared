@@ -75,10 +75,6 @@ func TestTwoDomainsCoexist(t *testing.T) {
 	}
 
 	got := tables(t, db)
-	// <instance>_<module>_<table>. Both domains declare a page_view object,
-	// and it is the instance segment that keeps them apart; the module
-	// segment keeps all of them clear of whatever other module is mounted in
-	// the same database.
 	want := []string{
 		"clinic_record_page_views", "clinic_record_patients", "clinic_record_visits",
 		"garage_record_page_views", "garage_record_parts", "garage_record_vehicles",
@@ -476,6 +472,61 @@ func TestExpressionIndexesAreDoubleParenthesised(t *testing.T) {
 					t.Errorf("%s/%s: expression index is not double-parenthesised:\n  %s", path, dialect, stmt)
 				}
 			}
+		}
+	}
+}
+
+func TestTwoMountsOfOneModuleCoexist(t *testing.T) {
+	db := open(t)
+
+	supplier := load(t, clinicSpec)
+	supplier.Mount = "supplier"
+	product := load(t, clinicSpec)
+	product.Mount = "product"
+
+	for _, s := range []*spec.Spec{supplier, product} {
+		if err := s.Validate(); err != nil {
+			t.Fatalf("validate mount %q: %v", s.Mount, err)
+		}
+		if err := spec.Migrate(db, s); err != nil {
+			t.Fatalf("migrate mount %q: %v", s.Mount, err)
+		}
+	}
+
+	want := []string{
+		"clinic_record_product_page_views", "clinic_record_product_patients", "clinic_record_product_visits",
+		"clinic_record_supplier_page_views", "clinic_record_supplier_patients", "clinic_record_supplier_visits",
+	}
+	if got := tables(t, db); strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("tables =\n  %v\nwant\n  %v", got, want)
+	}
+}
+
+func TestAMountDefaultsWhenUnset(t *testing.T) {
+	s := load(t, clinicSpec)
+	if s.Mount != "" {
+		t.Fatalf("fixture declares a mount %q, so this proves nothing", s.Mount)
+	}
+	if s.MountName() != spec.DefaultMount {
+		t.Errorf("MountName = %q, want %q", s.MountName(), spec.DefaultMount)
+	}
+	o, _ := s.ByRole("entry")
+	if got := s.TableFor(o); got != "clinic_record_patients" {
+		t.Errorf("TableFor = %q", got)
+	}
+}
+
+func TestValidate_RefusesAnUnusableMount(t *testing.T) {
+	for _, mount := range []string{"two_words", "Upper", "9lead", "has-dash", " "} {
+		s := load(t, clinicSpec)
+		s.Mount = mount
+		err := s.Validate()
+		if err == nil {
+			t.Errorf("mount %q was accepted", mount)
+			continue
+		}
+		if !strings.Contains(err.Error(), "usable name segment") {
+			t.Errorf("mount %q: error = %v", mount, err)
 		}
 	}
 }
