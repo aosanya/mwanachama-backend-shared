@@ -41,5 +41,15 @@ here: skipping either gate for one action turns it red.
 
 - `specstore/store_listcap_test.go`'s `TestS24_OpenBug_ListHasNoDefaultCap`
   (S24) — the integration sweep's, left failing on purpose until `List`
-  gains a default cap. It is the only red in `go test ./...` as of
-  2026-09-29 (`a95fbd7`).
+  gains a default cap.
+
+Not by design, and not a security hole: since 7ebe719 (S26's mount segment)
+`go test ./...` is also red for `spec`'s `TestBlueprintFillsTheFieldsADomainDoesNotRestate`
+and `TestTwoDomainsCoexist` and `specstore`'s `TestTableComesFromTheSpec`, each
+still expecting a three-segment name (`clinic_record_patients`) where
+`TableFor` now emits `clinic_record_main_patients` — measured by the security
+sweep, 2026-09-29T20:30Z. They are S27's to update. The mount segment's
+validation is pinned green by `spec/mount_segment_security_test.go`: an
+underscore, capital, hyphen, space, `;` or `.` in `mount` is refused by name,
+and a mount that pushes a name past 63 bytes is refused (mutation-checked by
+dropping the `SegmentPattern` check on the mount).

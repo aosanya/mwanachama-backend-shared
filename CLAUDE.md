@@ -86,7 +86,8 @@ its own indexes. `spec.Migrate` emits the DDL, which is the whole storage
 story — there is no `AutoMigrate` and there are no row structs.
 
 It knows nothing about any one module: a table is
-`<instance>_<module>_<table>`, every identifier is validated against a strict
+`<instance>_<module>_<mount>_<table>` (the mount defaults to `main`; 7ebe719,
+S26), every identifier is validated against a strict
 alphabet because it reaches SQL as text, and every emitted name is measured
 against Postgres's 63-byte limit, which truncates silently. The `matches`
 pattern registry stays per module — the spec names a pattern, the module says

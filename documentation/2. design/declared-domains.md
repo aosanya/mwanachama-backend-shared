@@ -92,8 +92,14 @@ against a strict alphabet rather than escaped**. `NamePattern` is lowercase,
 starting with a letter, words joined by single underscores. Never relax this
 to "escape it instead".
 
-A physical name is `<instance>_<module>_<table>` — `agency_catalog_agencies`,
-`agency_agency_goals`. The module segment is not decoration: without it a
+A physical name is `<instance>_<module>_<mount>_<table>` —
+`agency_catalog_main_agencies`, `agency_agency_main_goals`. The mount segment
+(7ebe719, S26) defaults to `main` when a spec names none, and is what lets one
+tenant mount the same module twice; it is held to `SegmentPattern` and counted
+toward `MaxIdentifier` like the other two, which
+`spec/mount_segment_security_test.go` pins. Until S27 fans the segment out,
+the module repos' own tests still expect the three-segment names and are red
+against this checkout. The module segment is not decoration: without it a
 catalog instance named `agency` and an agency instance of the same name both
 want `agency_agencies`, and neither module notices, because `create table if
 not exists` is a no-op against a table that already exists and GORM's
@@ -102,7 +108,7 @@ not an error, which is why `Validate` refuses it rather than leaving it to
 the database:
 
 - `instance` and `module` match `SegmentPattern` — `NamePattern` minus the
-  underscore — so the three segments can be read back apart. With `_` both
+  underscore — so the segments can be read back apart. With `_` both
   the separator and legal inside a segment, `a_b_c_goals` does not say which
   part is which.
 - Every emitted name is measured against `MaxIdentifier` (63). **Postgres
