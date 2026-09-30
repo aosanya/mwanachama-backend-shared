@@ -201,6 +201,22 @@ presentation choice and gets this wrong exactly where it hurts:
 response, and a tag-reading codec would quietly stop storing it — every share
 key issued would then fail to match.
 
+A field tagged **`spec:"-"`** is not a column. It is skipped by all four
+struct walks — the construction-time check, `ColumnsOf`, `Encode` and
+`Decode` — so it is never written, never read back, and never counted as a
+column its object failed to declare. It exists for a value that is genuinely
+held somewhere else: read from a join table, derived from an inverse foreign
+key, or attached in process while a job runs. `mwanachama-backend-git` is
+where this came from, with six — `Commit.ParentIDs` and `Tree.BlobIDs` come
+from join tables, `Keyword.ChildIDs` from a query on the parent column, and
+`Blob.TreeID` is carried for an API contract and never populated at all.
+
+The tag is not an escape hatch for a field the object forgot. An **untagged**
+field nothing declares is still refused by name at construction, which is the
+direction that catches a typo and a rename; the tag is a claim that the
+module fills this one itself, and a module that tags a real column has simply
+stopped storing it.
+
 **Every declared column is written on every write.** A map missing a key
 means "leave it alone" to an update, so omitting empty values would make
 clearing a field impossible: an entry would keep the `approved_at` that its

@@ -59,10 +59,8 @@ func disagreements(o spec.Object, carrier any) []string {
 		declared[f.Name] = f
 	}
 	carried := make(map[string]reflect.StructField, t.NumField())
-	for i := 0; i < t.NumField(); i++ {
-		if f := t.Field(i); f.PkgPath == "" {
-			carried[ColumnName(f.Name)] = f
-		}
+	for _, f := range carriedFields(t) {
+		carried[ColumnName(f.Name)] = f
 	}
 
 	var out []string
@@ -145,12 +143,22 @@ func NewID() string { return uuid.NewString() }
 
 func ColumnsOf(t reflect.Type) map[string]bool {
 	out := map[string]bool{}
+	for _, f := range carriedFields(t) {
+		out[ColumnName(f.Name)] = true
+	}
+	return out
+}
+
+const skipTag = "-"
+
+func carriedFields(t reflect.Type) []reflect.StructField {
+	out := make([]reflect.StructField, 0, t.NumField())
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		if f.PkgPath != "" {
+		if f.PkgPath != "" || f.Tag.Get("spec") == skipTag {
 			continue
 		}
-		out[ColumnName(f.Name)] = true
+		out = append(out, f)
 	}
 	return out
 }
@@ -257,17 +265,12 @@ func Decode(o spec.Object, row map[string]any, out any) error {
 	}
 	rv = rv.Elem()
 
-	rt := rv.Type()
-	for i := 0; i < rt.NumField(); i++ {
-		f := rt.Field(i)
-		if f.PkgPath != "" {
-			continue
-		}
+	for _, f := range carriedFields(rv.Type()) {
 		raw, ok := row[ColumnName(f.Name)]
 		if !ok || raw == nil {
 			continue
 		}
-		if err := assign(rv.Field(i), raw); err != nil {
+		if err := assign(rv.FieldByIndex(f.Index), raw); err != nil {
 			return fmt.Errorf("decode %s.%s: %w", o.Name, f.Name, err)
 		}
 	}
@@ -276,12 +279,8 @@ func Decode(o spec.Object, row map[string]any, out any) error {
 
 func fieldsByColumn(rv reflect.Value) map[string]reflect.Value {
 	out := map[string]reflect.Value{}
-	rt := rv.Type()
-	for i := 0; i < rt.NumField(); i++ {
-		if rt.Field(i).PkgPath != "" {
-			continue
-		}
-		out[ColumnName(rt.Field(i).Name)] = rv.Field(i)
+	for _, f := range carriedFields(rv.Type()) {
+		out[ColumnName(f.Name)] = rv.FieldByIndex(f.Index)
 	}
 	return out
 }
