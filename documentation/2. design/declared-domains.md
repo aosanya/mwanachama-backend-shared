@@ -20,22 +20,55 @@ operate on and, for each, every field and the indexes every domain needs.
 
 A **spec** is one domain's. It names which object fills each role, what the
 domain calls it, which table it lands in, its own indexes, and — on a field
-the module declared — a default, and nothing else.
+the module declared — a default, plus further `values` where that field is
+an enum.
 
 | The module's blueprint | A domain's spec |
 | --- | --- |
 | the roles that exist | which object fills each role, and what it is called |
 | every field: name, type, description, `required`/`unique`/`immutable`/`primary`, `values`, `matches` | `module`, `domain`, `instance`, an optional `mount`, and each object's `table` |
 | the indexes every domain needs | its own indexes, including document-path ones over its own vocabulary |
-| — | a **default**, and nothing else, on a field it fills a role with |
+| — | a **default** on a field it fills a role with, and **further `values`** on an enum |
 | — | objects of its own, which declare their own fields and take no role |
 
 `Blueprint.Load`/`Blueprint.Parse` read a domain spec through the blueprint;
 `Blueprint.Apply` is the merge, and it is deliberately unforgiving. A domain
-that sets a type, a description or a value set on a declared field is refused
+that sets a type, a description or any rule on a declared field is refused
 **by name** at load, as is one claiming a role the module does not declare or
 adding a field to one it does. A domain that needs a field of its own
 declares an object of its own, with no role.
+
+### Widening an enum
+
+A domain may add values to an enum the module declares. It **widens** the
+module's set; it never replaces it:
+
+```json
+{"role": "notification", "name": "announcement", "table": "announcements",
+ "description": "...",
+ "fields": [{"name": "event", "values": ["report_card_published"]}]}
+```
+
+The module's own values come first and are always kept, because a module
+writes some of them itself — comm's `message_removed` is its own moderation's
+removal receipt, and a domain that forgot to restate it would break the
+module rather than its own instance. Restating a value the module already
+permits is refused, since it reads as an override and is not one, and
+`values` on a field that is not an enum is refused by the field's declared
+type. The merge runs before validation, so a domain may default to a value it
+adds in the same breath.
+
+The alternative was worse in both directions. A closed vocabulary had only
+two homes: the module blueprint, where it is closed against every domain, or
+nowhere, unvalidated. comm took the first and ended up declaring fourteen
+civic-programme words — `survey`, `contribution`, `merchandise` — in a module
+that raises exactly one of them itself. A carrier should not own its callers'
+vocabulary.
+
+What this does **not** solve is a value that constrains another field's
+value. comm pairs each notification event with the category it is muted
+under, in Go; a domain that adds an event still has nowhere to declare its
+category. That is comm's CM26 and is open.
 
 The reason is drift. Before catalog's CAT5, each domain restated the module's
 whole object set — 62 field declarations of which 60 were identical bar the

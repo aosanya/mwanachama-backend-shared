@@ -92,9 +92,9 @@ func TestBlueprintDomainSetsADefaultAndNothingElse(t *testing.T) {
 	})
 
 	for _, tc := range []struct{ name, field, want string }{
-		{"a type", `{"name":"state","type":"string"}`, "may set a default and nothing else"},
-		{"a description", `{"name":"slug","description":"mine now"}`, "may set a default and nothing else"},
-		{"more values", `{"name":"state","values":["pending","embargoed"]}`, "may set a default and nothing else"},
+		{"a type", `{"name":"state","type":"string"}`, "may set a default and, on an enum, further values"},
+		{"a description", `{"name":"slug","description":"mine now"}`, "may set a default and, on an enum, further values"},
+		{"a rule", `{"name":"slug","required":true}`, "may set a default and, on an enum, further values"},
 		{"a field the module does not declare", `{"name":"sector","type":"string","description":"x"}`, "declares no field"},
 	} {
 		t.Run("refuses "+tc.name, func(t *testing.T) {
@@ -106,6 +106,100 @@ func TestBlueprintDomainSetsADefaultAndNothingElse(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestADomainWidensAnEnumTheModuleDeclares(t *testing.T) {
+	b := mustBlueprint(t, oneObject)
+	s, err := b.Parse([]byte(domainSpec(
+		`{"role":"entry","name":"patient","table":"patients","description":"One person the clinic treats.",
+		  "fields":[{"name":"state","values":["referred","discharged"]}]}`)))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	o, _ := s.ByRole("entry")
+	got := valuesOf(t, o, "state")
+	want := []string{"pending", "open", "closed", "referred", "discharged"}
+	if len(got) != len(want) {
+		t.Fatalf("values = %v, want the module's three widened by the domain's two", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("values = %v, want %v — the module's set comes first, so widening never reorders it", got, want)
+		}
+	}
+}
+
+func TestADomainsWideningKeepsTheModulesOwnValues(t *testing.T) {
+	b := mustBlueprint(t, oneObject)
+	s, err := b.Parse([]byte(domainSpec(
+		`{"role":"entry","name":"patient","table":"patients","description":"One person the clinic treats.",
+		  "fields":[{"name":"state","values":["referred"]}]}`)))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	o, _ := s.ByRole("entry")
+	for _, want := range []string{"pending", "open", "closed"} {
+		if !holdsValue(valuesOf(t, o, "state"), want) {
+			t.Errorf("widening dropped the module's own %q, so a value the module itself writes would be refused", want)
+		}
+	}
+}
+
+func TestADomainMayDefaultToAValueItAdded(t *testing.T) {
+	b := mustBlueprint(t, oneObject)
+	s, err := b.Parse([]byte(domainSpec(
+		`{"role":"entry","name":"patient","table":"patients","description":"One person the clinic treats.",
+		  "fields":[{"name":"state","default":"referred","values":["referred"]}]}`)))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	o, _ := s.ByRole("entry")
+	for _, f := range o.Fields {
+		if f.Name == "state" && f.Default != "referred" {
+			t.Errorf("default = %q, want the value the domain added in the same breath", f.Default)
+		}
+	}
+}
+
+func TestADomainCannotRestateAValueTheModuleAlreadyPermits(t *testing.T) {
+	b := mustBlueprint(t, oneObject)
+	_, err := b.Parse([]byte(domainSpec(
+		`{"role":"entry","name":"patient","table":"patients","description":"One person the clinic treats.",
+		  "fields":[{"name":"state","values":["pending","referred"]}]}`)))
+	if err == nil || !strings.Contains(err.Error(), "already permits") {
+		t.Fatalf("err = %v, want a refusal naming the restated value", err)
+	}
+}
+
+func TestOnlyAnEnumHasValuesToWiden(t *testing.T) {
+	b := mustBlueprint(t, oneObject)
+	_, err := b.Parse([]byte(domainSpec(
+		`{"role":"entry","name":"patient","table":"patients","description":"One person the clinic treats.",
+		  "fields":[{"name":"slug","values":["anything"]}]}`)))
+	if err == nil || !strings.Contains(err.Error(), "only an enum has values") {
+		t.Fatalf("err = %v, want a refusal naming the field's declared type", err)
+	}
+}
+
+func valuesOf(t *testing.T, o spec.Object, field string) []string {
+	t.Helper()
+	for _, f := range o.Fields {
+		if f.Name == field {
+			return f.Values
+		}
+	}
+	t.Fatalf("no field %q", field)
+	return nil
+}
+
+func holdsValue(vs []string, want string) bool {
+	for _, v := range vs {
+		if v == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestBlueprintRefusesARoleTheModuleDoesNotDeclare(t *testing.T) {

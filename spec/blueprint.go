@@ -172,19 +172,54 @@ func extend(declared, domain Object) (Object, []string) {
 		}
 		overridden[f.Name] = true
 
-		if !onlyDefault(f) {
-			add("object %q: field %q may set a default and nothing else — its type, its rules and its description are the module's declaration",
+		if !onlyDefaultOrValues(f) {
+			add("object %q: field %q may set a default and, on an enum, further values — its type, its rules and its description are the module's declaration",
 				domain.Name, f.Name)
 			continue
 		}
-		out.Fields[at].Default = f.Default
+		if f.Default != "" {
+			out.Fields[at].Default = f.Default
+		}
+		if len(f.Values) > 0 {
+			widened, errs := widen(domain.Name, out.Fields[at], f.Values)
+			problems = append(problems, errs...)
+			out.Fields[at].Values = widened
+		}
 	}
 
 	out.Indexes = append(append([]Index{}, declared.Indexes...), domain.Indexes...)
 	return out, problems
 }
 
-func onlyDefault(f Field) bool {
-	bare := Field{Name: f.Name, Default: f.Default}
+func onlyDefaultOrValues(f Field) bool {
+	bare := Field{Name: f.Name, Default: f.Default, Values: f.Values}
 	return reflect.DeepEqual(f, bare)
+}
+
+func widen(object string, declared Field, added []string) ([]string, []string) {
+	var problems []string
+	add := func(format string, a ...any) { problems = append(problems, fmt.Sprintf(format, a...)) }
+
+	if declared.Type != TypeEnum {
+		add("object %q: field %q is declared %s, and only an enum has values for a domain to widen",
+			object, declared.Name, declared.Type)
+		return declared.Values, problems
+	}
+
+	held := make(map[string]bool, len(declared.Values))
+	for _, v := range declared.Values {
+		held[v] = true
+	}
+
+	out := append([]string{}, declared.Values...)
+	for _, v := range added {
+		if held[v] {
+			add("object %q: field %q already permits %q, and a domain widens the module's set rather than restating it",
+				object, declared.Name, v)
+			continue
+		}
+		held[v] = true
+		out = append(out, v)
+	}
+	return out, problems
 }
