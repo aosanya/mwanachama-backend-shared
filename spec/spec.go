@@ -15,6 +15,8 @@ package spec
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -34,6 +36,12 @@ var NamePattern = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
 var SegmentPattern = regexp.MustCompile(`^[a-z][a-z0-9]*$`)
 
 const DefaultMount = "main"
+
+const MountHashLength = 8
+
+const HashLength = 12
+
+const NameRegistrySuffix = "spec_table_names"
 
 // MaxIdentifier is Postgres's identifier limit. It matters because the
 // database does not complain: NAMEDATALEN-1 is 63 bytes and anything longer
@@ -228,11 +236,44 @@ func decode(raw []byte, into any) error {
 // alphabet and same reason as a name: it reaches SQL as text.
 var DocPathPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$`)
 
-func (s *Spec) TableFor(o Object) string {
-	if s.MountName() == DefaultMount {
-		return s.Instance + "_" + s.Module + "_" + o.table()
+func (s *Spec) RawNameFor(o Object) string {
+	return s.Module + "_" + s.MountName() + "_" + o.table()
+}
+
+func (s *Spec) rawObjectName(o Object) string {
+	return s.Module + "_" + o.table()
+}
+
+func digest(raw string, length int) string {
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])[:length]
+}
+
+func HashName(raw string) string { return digest(raw, HashLength) }
+
+func HashMount(raw string) string { return digest(raw, MountHashLength) }
+
+func NameRegistryTableFor(instance string) string {
+	return instance + "_" + NameRegistrySuffix
+}
+
+func InstanceOf(physical string) string {
+	if i := strings.Index(physical, "_"); i > 0 {
+		return physical[:i]
 	}
-	return s.Instance + "_" + s.Module + "_" + s.MountName() + "_" + o.table()
+	return ""
+}
+
+func (s *Spec) NameRegistryTable() string {
+	return NameRegistryTableFor(s.Instance)
+}
+
+func (s *Spec) MountKey() string {
+	return HashMount(s.MountName())
+}
+
+func (s *Spec) TableFor(o Object) string {
+	return s.Instance + "_" + s.MountKey() + "_" + HashName(s.rawObjectName(o))
 }
 
 func (s *Spec) IndexFor(o Object, idx Index) string {

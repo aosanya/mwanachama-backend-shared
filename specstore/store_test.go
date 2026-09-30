@@ -242,7 +242,12 @@ func TestTakeAnswersTheCallersSentinel(t *testing.T) {
 // domains mount the same module in one database.
 func TestTableComesFromTheSpec(t *testing.T) {
 	st, _ := newStore(t)
-	if got := st.Table(roleTicket); got != "support_record_tickets" {
-		t.Errorf("Table = %q, want the physical name the spec declares", got)
+	s := loadSpec(t)
+	o, _ := s.ByRole(roleTicket)
+	if got := st.Table(roleTicket); got != s.TableFor(o) {
+		t.Errorf("Table = %q, want the physical name the spec declares (%q)", got, s.TableFor(o))
+	}
+	if got := s.RawNameFor(o); got != "record_main_tickets" {
+		t.Errorf("RawNameFor = %q", got)
 	}
 }

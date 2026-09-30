@@ -18,7 +18,7 @@ func Migrate(db *gorm.DB, s *Spec) error {
 			return fmt.Errorf("spec: migrate: %w\n  in: %s", err, stmt)
 		}
 	}
-	return nil
+	return RecordNames(db, s)
 }
 
 // DDL returns every statement Migrate would run, in order. Having it

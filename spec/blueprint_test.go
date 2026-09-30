@@ -57,8 +57,11 @@ func TestBlueprintFillsTheFieldsADomainDoesNotRestate(t *testing.T) {
 	if o.Name != "patient" || o.Table != "patients" {
 		t.Errorf("name/table = %q/%q, want the domain's own", o.Name, o.Table)
 	}
-	if s.TableFor(o) != "clinic_record_patients" {
-		t.Errorf("TableFor = %q", s.TableFor(o))
+	if got := s.RawNameFor(o); got != "record_main_patients" {
+		t.Errorf("RawNameFor = %q", got)
+	}
+	if got := s.TableFor(o); got != physical(s, "main", "record_patients") {
+		t.Errorf("TableFor = %q", got)
 	}
 	if len(o.Indexes) != 1 || o.Indexes[0].Name != "state" {
 		t.Errorf("indexes = %v, want the module's own carried over", o.Indexes)

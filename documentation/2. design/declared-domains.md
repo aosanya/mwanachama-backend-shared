@@ -92,80 +92,68 @@ against a strict alphabet rather than escaped**. `NamePattern` is lowercase,
 starting with a letter, words joined by single underscores. Never relax this
 to "escape it instead".
 
-A physical name is `<instance>_<module>_<table>` — `agency_catalog_agencies`,
-`agency_agency_goals` — and `<instance>_<module>_<mount>_<table>` for a
-second mount of the same module. Each leading segment earns its place, and
-every one exists because the collision it prevents is **silent data mixing
-rather than an error**: `create table if not exists` is a no-op against a
-table that already exists, and GORM's `AutoMigrate` simply adopts one.
-Nothing in either module notices. That is why `Validate` refuses these cases
-rather than leaving them to the database.
+A physical name is **`<instance>_hashOf(<module>_<mount>_<object>)`** —
+`agy1f2e3d4c_8766f69928a18f58`. Only the instance stays readable; everything
+that identifies the table *within* that instance is a 16-hex-character SHA-256
+digest of its **raw name**, `<module>_<mount>_<object>`.
 
-- **`instance`** separates tenants. It is the agency's `tableSlug()` for a
-  module mounted per agency, or the configured spec instance for a global one.
+- **`instance`** separates tenants, and stays readable so a table can be
+  attributed to one at a glance. It is the agency's `tableSlug()` for a module
+  mounted per agency, or the configured spec instance for a global one.
 - **`module`** separates modules. Without it a catalog instance named `agency`
-  and an agency instance of the same name both want `agency_agencies`.
+  and an agency instance of the same name both want one table.
 - **`mount`** separates two mounts of the *same* module within one instance —
-  a tenant with a supplier catalog and a product catalog. Without it both want
-  one table set.
+  a tenant with a supplier catalog and a product catalog. It is **always**
+  present in the raw name, defaulting to `DefaultMount` (`main`).
 
-**The default mount is elided from the name, and this is load-bearing rather
-than cosmetic.** `Spec.MountName()` returns `DefaultMount` (`main`) when a
-spec declares no mount, and `TableFor` emits the segment only when the mount
-is *not* the default. Two consequences:
+`RawNameFor` builds the raw name, `HashName` digests it, `TableFor` joins the
+two, and `IndexFor` keeps a readable suffix on the hashed table
+(`<table>_<index>_idx`) — the one piece of debuggability left, and it fits.
 
-- Every name that existed before mounts existed is unchanged, so adopting
-  mounts migrates no data at all. A second mount is new tables beside the
-  first, never a rename of it.
-- A module that provisions a pre-mount database forward (`forms`, `agency`)
-  must treat prior names as legacy **only for the default mount**. Without
-  that guard a second mount renames the first mount's tables into itself and
-  the first mount's data is silently adopted, which is the failure this whole
-  segment exists to prevent. Pinned by agency's
-  `TestASecondMountDoesNotAdoptTheDefaultMountsTables`.
+### Why a hash, and what it costs
+
+The readable form ran out of room. Measured against the real 11-character
+slug `mwanachama-wakala-api` mints (`"agy"` + 8 hex), the longest identifiers
+were already **62 of 63 bytes** (catalog's
+`suggestion_comments_suggestion_created_idx`) and 61 (taskmanager's
+`workflow_runs_parent_workflow_run_idx`). Adding any further segment refused
+those two modules outright for every real instance — caught by a failing
+provision, not by review, because every fixture uses a short instance name
+like `wakala` or `clinic` and none of them reach the ceiling.
+
+Hashing makes the length **constant**: 28 bytes for a table, 51 for the worst
+index, however long the mount name is.
+
+What it costs is legibility. `psql \dt`, a backup, an ad-hoc query and the
+gateway's hand-maintained SQL mirror all see digests. That is what the name
+registry is for, and it is why the registry is not optional.
+
+### The name registry
+
+`spec.Migrate` writes one row per object into **`spec_table_names`**
+(`NameRegistryTable`), carrying `physical`, `instance`, `module`, `mount`,
+`object` and `raw` — the parts split out so the table can be queried without
+re-parsing a name. It is upserted, so re-migrating stays a no-op, and
+`LookupName` reads one back.
+
+**`TableFor` is pure and deterministic**: the physical name is derivable from
+the spec alone, and the registry is a record for humans and tools, never a
+lookup the code performs. A lost registry therefore costs legibility, not
+correctness — but it costs *all* of it, so the registry belongs in whatever
+gets backed up.
+
+One practical consequence: the registry is a real table, so anything counting
+or listing tables must exclude it.
 
 Constraints on the segments:
 
 - `instance`, `module` and `mount` match `SegmentPattern` — `NamePattern`
-  minus the underscore — so the segments can be read back apart. With `_`
-  both the separator and legal inside a segment, `a_b_c_d_goals` does not say
-  which part is which. The object's own table name is last, so it keeps its
-  underscores.
-- Every emitted name is measured against `MaxIdentifier` (63). **Postgres
-  truncates past it without complaining**, so two names agreeing that far are
-  one relation. Index names are measured in the same namespace as tables,
-  because Postgres keeps them there and `<table>_<index>_idx` overflows
-  before its own table does.
-
-### The budget is nearly exhausted, and a mount is what spends the rest
-
-Measured against the real instance slug `mwanachama-wakala-api` mints
-(`tableSlug()` = `"agy"` + 8 hex = 11 characters), the longest identifiers
-shipped today are:
-
-| bytes | identifier |
-| --- | --- |
-| 62 | `<slug11>_catalog_suggestion_comments_suggestion_created_idx` |
-| 61 | `<slug11>_taskmanager_workflow_runs_parent_workflow_run_idx` |
-| 60 | `<slug11>_taskmanager_task_project_memberships_project_idx` |
-
-Catalog is at **62 of 63** — one byte of headroom — and the longest names are
-index names, which come from the *blueprint* as often as from the domain
-spec, so counting only a domain spec's own indexes understates the worst case
-badly.
-
-This is why the default mount is elided: emitting a fourth segment
-unconditionally would have refused catalog and taskmanager outright for every
-real instance. It also means **a second mount is not available everywhere**.
-The mount segment costs `len(mount) + 1` bytes, so against an 11-character
-slug taskmanager admits a mount of up to 6 characters and catalog admits
-none at all. `Validate` reports this precisely, at load, naming the index and
-the byte count — it never truncates — so the refusal is safe, just limiting.
-
-Giving those modules a second mount means shortening how an index name is
-built (today `<table>_<index>_idx` repeats the whole table name, and Postgres
-only requires database-global uniqueness, not readability). That is a
-separate decision: it renames every index in every live database.
+  minus the underscore — so the raw name can be read back apart. The object's
+  own table name is last, so it keeps its underscores.
+- Every emitted name is still measured against `MaxIdentifier` (63). A hashed
+  table cannot overflow on its own, but the **instance is not hashed**, so a
+  long enough instance still can, and an index suffix adds to it. **Postgres
+  truncates past the limit without complaining**, so this check stays.
 - Every problem is reported, not just the first: a spec is edited by hand, and
   a list beats one round trip per mistake.
 

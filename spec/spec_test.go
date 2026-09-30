@@ -51,12 +51,47 @@ func load(t *testing.T, path string) *spec.Spec {
 func tables(t *testing.T, db *gorm.DB) []string {
 	t.Helper()
 	var names []string
-	if err := db.Raw(`select name from sqlite_master where type='table' and name not like 'sqlite_%'`).
+	if err := db.Raw(`select name from sqlite_master where type='table' and name not like 'sqlite_%'
+		and name not like '%_' || ?`, spec.NameRegistrySuffix).
 		Scan(&names).Error; err != nil {
 		t.Fatalf("list tables: %v", err)
 	}
 	sort.Strings(names)
 	return names
+}
+
+func assertTables(t *testing.T, db *gorm.DB, specs ...*spec.Spec) {
+	t.Helper()
+	var want []string
+	for _, s := range specs {
+		for _, o := range s.Objects {
+			want = append(want, s.TableFor(o))
+		}
+	}
+	sort.Strings(want)
+	if got := tables(t, db); strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("tables =\n  %v\nwant\n  %v", got, want)
+	}
+	if len(want) != len(uniq(want)) {
+		t.Errorf("two declared objects hash to one table: %v", want)
+	}
+}
+
+func physical(s *spec.Spec, mount, moduleObject string) string {
+	return s.Instance + "_" + spec.HashMount(mount) + "_" + spec.HashName(moduleObject)
+}
+
+func uniq(in []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, s := range in {
+		if seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	return out
 }
 
 // Two domains, one module, one database: the whole point of declaring
@@ -74,13 +109,19 @@ func TestTwoDomainsCoexist(t *testing.T) {
 		t.Fatalf("migrate garage: %v", err)
 	}
 
-	got := tables(t, db)
-	want := []string{
-		"clinic_record_page_views", "clinic_record_patients", "clinic_record_visits",
-		"garage_record_page_views", "garage_record_parts", "garage_record_vehicles",
-	}
-	if strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Errorf("tables =\n  %v\nwant\n  %v", got, want)
+	assertTables(t, db, clinic, garage)
+
+	for _, tc := range []struct {
+		s       *spec.Spec
+		wantRaw string
+	}{
+		{clinic, "record_main_patients"},
+		{garage, "record_main_vehicles"},
+	} {
+		o, _ := tc.s.ByRole("entry")
+		if got := tc.s.RawNameFor(o); got != tc.wantRaw {
+			t.Errorf("%s: raw name = %q, want %q", tc.s.Domain, got, tc.wantRaw)
+		}
 	}
 
 	// Each domain calls the object by its own noun; the module finds it by
@@ -90,8 +131,8 @@ func TestTwoDomainsCoexist(t *testing.T) {
 		wantName  string
 		wantTable string
 	}{
-		{clinic, "patient", "clinic_record_patients"},
-		{garage, "vehicle", "garage_record_vehicles"},
+		{clinic, "patient", physical(clinic, "main", "record_patients")},
+		{garage, "vehicle", physical(garage, "main", "record_vehicles")},
 	} {
 		o, ok := tc.s.ByRole("entry")
 		if !ok {
@@ -294,11 +335,27 @@ func TestValidate_RefusesIdentifiersTheDatabaseWouldMerge(t *testing.T) {
 		  {"name":"a","table":"entries","description":"one","fields":[{"name":"x","type":"string","description":"k","primary":true}]},
 		  {"name":"b","table":"entry_privates","description":"two","fields":[{"name":"x","type":"string","description":"k","primary":true}]}]}`
 		err := parseErr(t, body)
-		// Both halves are worth stating: that it is too long, and that the
-		// two of them land on one name.
-		for _, want := range []string{"truncates at 63", "both become"} {
-			if !strings.Contains(err.Error(), want) {
-				t.Errorf("err = %v, want it to mention %q", err, want)
+		if !strings.Contains(err.Error(), "truncates at 63") {
+			t.Errorf("err = %v, want it to mention the limit", err)
+		}
+	})
+
+	t.Run("a hash keeps two objects apart where a readable name would not", func(t *testing.T) {
+		s, err := spec.Parse([]byte(`{"module":"record","domain":"d","instance":"i","objects":[
+		  {"name":"a","table":"entries","description":"one","fields":[{"name":"x","type":"string","description":"k","primary":true}]},
+		  {"name":"b","table":"entry_privates","description":"two","fields":[{"name":"x","type":"string","description":"k","primary":true}]}]}`))
+		if err != nil {
+			t.Fatalf("parse: %v", err)
+		}
+		a, _ := s.Object("a")
+		b, _ := s.Object("b")
+		if s.TableFor(a) == s.TableFor(b) {
+			t.Fatalf("both objects hash to %q", s.TableFor(a))
+		}
+		for _, o := range []spec.Object{a, b} {
+			want := len(s.Instance) + 1 + spec.MountHashLength + 1 + spec.HashLength
+			if len(s.TableFor(o)) != want {
+				t.Errorf("table %q is not instance + mount key + hash", s.TableFor(o))
 			}
 		}
 	})
@@ -493,13 +550,7 @@ func TestTwoMountsOfOneModuleCoexist(t *testing.T) {
 		}
 	}
 
-	want := []string{
-		"clinic_record_product_page_views", "clinic_record_product_patients", "clinic_record_product_visits",
-		"clinic_record_supplier_page_views", "clinic_record_supplier_patients", "clinic_record_supplier_visits",
-	}
-	if got := tables(t, db); strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Errorf("tables =\n  %v\nwant\n  %v", got, want)
-	}
+	assertTables(t, db, supplier, product)
 }
 
 func TestAMountDefaultsWhenUnset(t *testing.T) {
@@ -511,7 +562,10 @@ func TestAMountDefaultsWhenUnset(t *testing.T) {
 		t.Errorf("MountName = %q, want %q", s.MountName(), spec.DefaultMount)
 	}
 	o, _ := s.ByRole("entry")
-	if got := s.TableFor(o); got != "clinic_record_patients" {
+	if got := s.RawNameFor(o); got != "record_main_patients" {
+		t.Errorf("RawNameFor = %q, want the default mount spelled out", got)
+	}
+	if got := s.TableFor(o); got != physical(s, "main", "record_patients") {
 		t.Errorf("TableFor = %q", got)
 	}
 }
