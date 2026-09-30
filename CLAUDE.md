@@ -86,20 +86,26 @@ its own indexes. `spec.Migrate` emits the DDL, which is the whole storage
 story — there is no `AutoMigrate` and there are no row structs.
 
 It knows nothing about any one module: a table is
-**`<instance>_hashOf(<module>_<mount>_<object>)`** (S29, 2026-09-30) — only the
-instance segment stays readable, and the rest is 16 hex characters of SHA-256
-over the raw name `RawNameFor` builds. Every identifier is validated against a
+**`<instance>_hashOf(<mount>)_hashOf(<module>_<object>)`** (S29, 2026-09-30) —
+only the instance segment stays readable. The middle is 8 hex characters over
+the mount, so one mount's tables sort together as a block; the last is 12 hex
+over `<module>_<object>`, so the same table reads identically in every agency.
+`RawNameFor` builds the full logical name the registry records. Every identifier is validated against a
 strict alphabet because it reaches SQL as text, and every emitted name is still
 measured against Postgres's 63-byte limit, which truncates silently: the hash
 makes a table a constant 28 bytes and the worst index 51, where the readable
 form had already reached 62. The `matches` pattern registry stays per module —
 the spec names a pattern, the module says what the name means.
 
-`spec.Migrate` also writes **`spec_table_names`** (S30), one row per object
-carrying the physical name beside its raw one, because a hashed name is
-otherwise unattributable. `TableFor` stays pure — the registry is a record for
-humans and tools, never a lookup — so losing it costs legibility, not
-correctness. It is a real table, so exclude it from anything that counts tables.
+`spec.Migrate` also writes a **per-instance registry** (S30),
+`<instance>_spec_table_names`, one row per object carrying the physical name
+beside its raw one, because a hashed name is otherwise unattributable. It is
+per instance, not global, so it travels with an agency if agencies ever move to
+their own databases — and since an instance segment carries no underscore, a
+physical name's prefix tells you which registry to consult (`spec.InstanceOf`).
+`TableFor` stays pure — the registry is a record for humans and tools, never a
+lookup — so losing it costs legibility, not correctness. These are real tables,
+so exclude `%_spec_table_names` from anything that counts tables.
 
 `mwanachama-backend-catalog` is the first consumer and
 `mwanachama-backend-agency` the second (AGD-007 there). The org-wide strategy
