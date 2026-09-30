@@ -145,8 +145,14 @@ type Index struct {
 
 	// NotDeleted restricts the index to rows whose "deleted" column is
 	// false. It is a named condition rather than free SQL, because free SQL
-	// here would be an injection surface with no upside.
+	// here would be an injection surface with no upside. It is the shorthand
+	// for one Where entry, {"field": "deleted", "op": "is_false"}.
 	NotDeleted bool `json:"not_deleted,omitempty"`
+
+	// Where restricts the index further, as named conditions over declared
+	// fields for the same reason NotDeleted is one. Every entry must hold
+	// for a row to be indexed.
+	Where []Predicate `json:"where,omitempty"`
 }
 
 // PathRef names a path inside a json field.

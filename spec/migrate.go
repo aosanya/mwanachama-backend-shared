@@ -142,8 +142,8 @@ func (s *Spec) createIndexes(o Object, dialect string) []string {
 		}
 
 		where := ""
-		if idx.NotDeleted {
-			where = " where deleted = false"
+		if conds := idx.conditions(); len(conds) > 0 {
+			where = " where " + strings.Join(conds, " and ")
 		}
 
 		out = append(out, fmt.Sprintf("create %sindex if not exists %s on %s %s%s",

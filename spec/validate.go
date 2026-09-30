@@ -122,6 +122,7 @@ func (o Object) validate() []string {
 	}
 
 	seen := map[string]bool{}
+	byName := map[string]Field{}
 	primaries := 0
 	for _, f := range o.Fields {
 		if !NamePattern.MatchString(f.Name) {
@@ -132,6 +133,7 @@ func (o Object) validate() []string {
 			add("object %q: field %q is declared twice", o.Name, f.Name)
 		}
 		seen[f.Name] = true
+		byName[f.Name] = f
 
 		if strings.TrimSpace(f.Description) == "" {
 			add("object %q: field %q has no description", o.Name, f.Name)
@@ -207,6 +209,8 @@ func (o Object) validate() []string {
 		if idx.NotDeleted && !seen["deleted"] {
 			add("object %q: index %q is scoped to undeleted rows but there is no deleted field", o.Name, idx.Name)
 		}
+
+		problems = append(problems, idx.validateWhere(o, byName)...)
 	}
 	return problems
 }

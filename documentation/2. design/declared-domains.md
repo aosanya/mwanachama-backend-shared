@@ -75,9 +75,24 @@ Two refusals are worth knowing before they surprise anyone:
 An index is over columns (`"fields": ["state"]`) or over a **document path**
 (`"path": {"field": "doc", "path": "identifiers.isbn"}`), which is how a
 domain makes its own vocabulary fast without the module learning the word.
-`unique` and `not_deleted` are the two modifiers; `not_deleted` is a named
-condition rather than free SQL, because free SQL here would be an injection
-surface with no upside.
+`unique`, `not_deleted` and `where` are the modifiers. `where` narrows the
+index to the rows that satisfy every one of its `{field, op}` conditions,
+over declared fields only, with `not_empty`, `is_true` and `is_false` as the
+operators. They are named conditions rather than free SQL, because free SQL
+here would be an injection surface with no upside, and `not_deleted` is now
+simply the shorthand for `{"field": "deleted", "op": "is_false"}`.
+
+```json
+{ "name": "serial_tag_uniq", "fields": ["serial_tag"], "unique": true,
+  "not_deleted": true, "where": [{ "field": "serial_tag", "op": "not_empty" }] }
+```
+
+A unique index usually needs this the moment the column is optional, and
+getting it wrong is quiet: without the `not_empty` condition above, the
+second row that leaves `serial_tag` blank collides with the first, because
+`''` is a value like any other. The load-time checks refuse an unknown
+operator, an unknown field, an operator the field's type cannot stand
+(`not_empty` on an int) and a condition stated twice.
 
 `DocPathExpr` builds the expression, and both the index and the query filter
 go through it. That is not tidiness: an expression index applies only to a
