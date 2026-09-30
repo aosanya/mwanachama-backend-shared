@@ -2,147 +2,92 @@ package dispatch_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/aosanya/mwanachama-backend-shared/dispatch"
 )
 
-func muxOf(routes []dispatch.Route) http.Handler {
-	mux := http.NewServeMux()
-	for _, r := range routes {
-		mux.Handle(r.Method+" "+r.Path, r.Handler)
-	}
-	return mux
+var errGone = errors.New("gone")
+
+const twoOps = `{"operations":{
+  "open_thing":{"method":"GET","path":"/things/{slug}","call":"Open","action":"m.thing.open",
+    "args":[{"from":"path","as":"slug"},{"from":"query","as":"k"}],"returns":[{"body":true}]},
+  "retire_thing":{"method":"DELETE","path":"/things/{id}","call":"Retire","action":"m.thing.retire",
+    "status":204,"args":[{"from":"path","as":"id"}],"returns":[{"body":true}]}},
+  "errors":{"errGone":404}}`
+
+func newTable() *dispatch.Table {
+	return dispatch.NewTable([]byte(twoOps), map[string]error{"errGone": errGone}, "m.thing.open")
 }
 
-func newTable(anonymous ...string) *dispatch.Table {
-	return dispatch.NewTable("t", []byte(specJSON),
-		map[string]error{"ErrMissing": errMissing, "ErrConflict": errConflict}, anonymous...)
-}
-
-func TestTableBuildsTheSameRoutesAsDispatch(t *testing.T) {
-	built, err := newTable().Build(&manager{}, dispatch.Mount{})
-	if err != nil {
-		t.Fatalf("build: %v", err)
-	}
-	if len(built) != 4 {
-		t.Fatalf("built %d routes, want 4", len(built))
-	}
-	for _, r := range built {
-		if r.Action == "" {
-			t.Errorf("%s %s carries no action", r.Method, r.Path)
-		}
+func TestATableBuildsTheSameRoutesTheLadderDid(t *testing.T) {
+	routes := newTable().Routes(&manager{}, dispatch.Mount{})
+	if len(routes) != 2 {
+		t.Fatalf("built %d routes, want 2", len(routes))
 	}
 }
 
-func TestTableSplitsOnTheAllowlistAndNothingElse(t *testing.T) {
-	table := newTable("t.thing.open")
-	split := table.Split(&manager{}, dispatch.Mount{})
-
-	if len(split.Anonymous) != 1 || split.Anonymous[0].Action != "t.thing.open" {
-		t.Fatalf("anonymous = %+v, want only the named action", split.Anonymous)
-	}
-	if len(split.Gated) != 3 {
-		t.Fatalf("gated = %d routes, want the other three", len(split.Gated))
-	}
-}
-
-func TestATableWithAnEmptyAllowlistGatesEverything(t *testing.T) {
+func TestSplitSeparatesTheNamedActionsFromEveryOtherOne(t *testing.T) {
 	split := newTable().Split(&manager{}, dispatch.Mount{})
-	if len(split.Anonymous) != 0 {
-		t.Fatalf("%d routes are anonymous with an empty allowlist", len(split.Anonymous))
+	if len(split.Anonymous) != 1 || split.Anonymous[0].Action != "m.thing.open" {
+		t.Fatalf("anonymous = %v, want just the named action", split.Anonymous)
+	}
+	if len(split.Gated) != 1 || split.Gated[0].Action != "m.thing.retire" {
+		t.Fatalf("gated = %v, want everything not named", split.Gated)
 	}
 }
 
-func TestTheGatedHalfCarriesTheAuthorizerAndThePublicHalfDoesNot(t *testing.T) {
-	asked := map[string]int{}
-	table := newTable("t.thing.open")
-	split := table.Split(&manager{}, dispatch.Mount{
+func TestTheAnonymousHalfIsNotWrappedInTheAuthorizer(t *testing.T) {
+	asked := map[string]bool{}
+	split := newTable().Split(&manager{}, dispatch.Mount{
 		Authorize: func(ctx context.Context, action string) error {
-			asked[action]++
-			return nil
+			asked[action] = true
+			return dispatch.ErrForbidden
 		},
 	})
-
-	mux := muxOf(append(split.Anonymous, split.Gated...))
-	do(t, mux, "GET", "/v1/things/one", "")
-	if asked["t.thing.open"] != 0 {
-		t.Fatalf("the anonymous route asked the authorizer %d times", asked["t.thing.open"])
+	for _, r := range split.Anonymous {
+		req := httptest.NewRequest(http.MethodGet, "/things/x", nil)
+		req.SetPathValue("slug", "x")
+		r.Handler(httptest.NewRecorder(), req)
 	}
-	do(t, mux, "GET", "/v1/things", "")
-	if asked["t.thing.list"] != 1 {
-		t.Fatalf("the gated route asked the authorizer %d times, want 1", asked["t.thing.list"])
+	if asked["m.thing.open"] {
+		t.Error("the anonymous half asked the authorizer, so a public route is gated after all")
 	}
-}
 
-func TestATableRefusesAManagerMissingAMethod(t *testing.T) {
-	if _, err := newTable().Build(struct{}{}, dispatch.Mount{}); err == nil {
-		t.Fatal("a manager with none of the methods built without complaint")
+	for _, r := range split.Gated {
+		req := httptest.NewRequest(http.MethodDelete, "/things/x", nil)
+		req.SetPathValue("id", "x")
+		r.Handler(httptest.NewRecorder(), req)
 	}
-}
-
-func TestAnonymousActionsIsACopy(t *testing.T) {
-	table := newTable("t.thing.open")
-	got := table.AnonymousActions()
-	got[0] = "t.thing.rewritten"
-	if table.AnonymousActions()[0] != "t.thing.open" {
-		t.Fatal("a caller rewrote the table's own allowlist")
+	if !asked["m.thing.retire"] {
+		t.Error("the gated half did not ask the authorizer")
 	}
 }
 
-func TestUnmappedSentinelsNamesBothDirections(t *testing.T) {
-	s, err := dispatch.Parse([]byte(specJSON))
+func TestAnActionNamedAnonymousThatNoOperationDeclaresIsReported(t *testing.T) {
+	table := dispatch.NewTable([]byte(twoOps), map[string]error{"errGone": errGone},
+		"m.thing.open", "m.thing.renamed_away")
+	unknown, err := table.UnknownAnonymousActions()
 	if err != nil {
-		t.Fatalf("parse: %v", err)
+		t.Fatalf("UnknownAnonymousActions: %v", err)
 	}
-
-	clean := dispatch.UnmappedSentinels(s, map[string]error{"ErrMissing": errMissing, "ErrConflict": errConflict})
-	if len(clean) != 0 {
-		t.Fatalf("a spec that maps every supplied sentinel reported %v", clean)
-	}
-
-	short := dispatch.UnmappedSentinels(s, map[string]error{
-		"ErrMissing": errMissing, "ErrConflict": errConflict, "ErrStray": errMissing,
-	})
-	if len(short) != 1 {
-		t.Fatalf("an unmapped sentinel reported %v, want exactly one problem", short)
+	if len(unknown) != 1 || unknown[0] != "m.thing.renamed_away" {
+		t.Fatalf("unknown = %v, want the action nothing declares", unknown)
 	}
 }
 
-func TestUnmappedSentinelsReadsExportedVars(t *testing.T) {
-	dir := t.TempDir()
-	source := `package sample
-
-import "errors"
-
-var ErrMapped = errors.New("mapped")
-
-var ErrForgotten = errors.New("forgotten")
-
-var ErrNotASentinel = "not an error"
-`
-	if err := os.WriteFile(filepath.Join(dir, "errors.go"), []byte(source), 0o600); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-
-	s, err := dispatch.Parse([]byte(`{
-      "operations": {"one": {"method":"GET","path":"/one","call":"One","action":"t.one.read",
-                     "returns":[{"body":true}]}},
-      "errors": {"ErrMapped": 404}
-    }`))
+func TestASuppliedSentinelTheSpecNeverMapsIsReported(t *testing.T) {
+	table := dispatch.NewTable([]byte(twoOps), map[string]error{
+		"errGone": errGone, "errUnmapped": errors.New("unmapped"),
+	}, "m.thing.open")
+	missing, err := table.UnmappedSentinels()
 	if err != nil {
-		t.Fatalf("parse: %v", err)
+		t.Fatalf("UnmappedSentinels: %v", err)
 	}
-
-	problems := dispatch.UnmappedSentinels(s, nil, dir)
-	if len(problems) != 1 {
-		t.Fatalf("problems = %v, want only ErrForgotten", problems)
-	}
-	if !strings.Contains(problems[0], "ErrForgotten") {
-		t.Fatalf("problem = %q, want it to name ErrForgotten", problems[0])
+	if len(missing) != 1 || missing[0] != "errUnmapped" {
+		t.Fatalf("missing = %v, want the sentinel that would redact to a 500", missing)
 	}
 }

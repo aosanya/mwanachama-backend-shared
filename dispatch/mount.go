@@ -2,83 +2,92 @@ package dispatch
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 )
 
 type Mount struct {
 	Authorize Authorizer
 	Caller    Caller
-	Fields    map[string]FieldDoc
-	Fallback  int
 }
 
 type Table struct {
-	name       string
-	operations func() (*Spec, error)
-	sentinels  map[string]error
-	anonymous  []string
+	load      func() (*Spec, error)
+	once      sync.Once
+	spec      *Spec
+	err       error
+	sentinels map[string]error
+	anonymous []string
 }
 
-func NewTable(name string, operations []byte, sentinels map[string]error, anonymous ...string) *Table {
+func NewTable(operations []byte, sentinels map[string]error, anonymous ...string) *Table {
 	return &Table{
-		name:       name,
-		operations: sync.OnceValues(func() (*Spec, error) { return Parse(operations) }),
-		sentinels:  sentinels,
-		anonymous:  anonymous,
+		load:      func() (*Spec, error) { return Parse(operations) },
+		sentinels: sentinels,
+		anonymous: anonymous,
 	}
 }
 
-func (t *Table) Spec() (*Spec, error) { return t.operations() }
+func (t *Table) Spec() (*Spec, error) {
+	t.once.Do(func() { t.spec, t.err = t.load() })
+	return t.spec, t.err
+}
 
 func (t *Table) AnonymousActions() []string {
 	return append([]string(nil), t.anonymous...)
 }
 
-func (t *Table) deps(manager any, m Mount) Deps {
-	return Deps{
-		Manager:   manager,
-		Errors:    t.sentinels,
-		Fields:    m.Fields,
-		Fallback:  m.Fallback,
-		Authorize: m.Authorize,
-		Caller:    m.Caller,
-	}
-}
-
 func (t *Table) Build(manager any, m Mount) ([]Route, error) {
-	s, err := t.operations()
+	s, err := t.Spec()
 	if err != nil {
 		return nil, err
 	}
-	return Dispatch(s, t.deps(manager, m))
+	return Dispatch(s, Deps{
+		Manager: manager, Errors: t.sentinels, Authorize: m.Authorize, Caller: m.Caller,
+	})
 }
 
 func (t *Table) Routes(manager any, m Mount) []Route {
 	out, err := t.Build(manager, m)
 	if err != nil {
-		panic(fmt.Sprintf("%s routes: %v", t.name, err))
+		panic(fmt.Sprintf("dispatch: %v", err))
 	}
 	return out
 }
 
 func (t *Table) Split(manager any, m Mount) Split {
-	public := Anonymous(t.Routes(manager, Mount{Fields: m.Fields, Fallback: m.Fallback}), t.anonymous...)
+	open := Anonymous(t.Routes(manager, Mount{Caller: m.Caller}), t.anonymous...)
 	gated := Anonymous(t.Routes(manager, m), t.anonymous...)
-	return Split{Anonymous: public.Anonymous, Gated: gated.Gated}
+	return Split{Anonymous: open.Anonymous, Gated: gated.Gated}
 }
 
-func (t *Table) PublicRoutes(manager any, m Mount) []Route {
-	return t.Split(manager, m).Anonymous
-}
-
-func (t *Table) GatedRoutes(manager any, m Mount) []Route {
-	return t.Split(manager, m).Gated
-}
-
-func (t *Table) BuildTools(manager any, m Mount) ([]Tool, error) {
-	s, err := t.operations()
+func (t *Table) Shape() ([]Route, error) {
+	s, err := t.Spec()
 	if err != nil {
 		return nil, err
 	}
-	return Tools(s, t.deps(manager, m))
+	return Shape(s), nil
+}
+
+func (t *Table) UnknownAnonymousActions() ([]string, error) {
+	shape, err := t.Shape()
+	if err != nil {
+		return nil, err
+	}
+	return Split{}.Unmatched(shape, t.anonymous), nil
+}
+
+func (t *Table) UnmappedSentinels() ([]string, error) {
+	s, err := t.Spec()
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for name := range t.sentinels {
+		if _, ok := s.Errors[name]; !ok {
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return out, nil
 }
