@@ -38,6 +38,14 @@ that sets a type, a description or any rule on a declared field is refused
 adding a field to one it does. A domain that needs a field of its own
 declares an object of its own, with no role.
 
+The reason is drift. Before catalog's CAT5, each domain restated the module's
+whole object set — 62 field declarations of which 60 were identical bar the
+description — so renaming a field under one domain left the other wrong with
+nothing failing until somebody loaded it.
+
+A spec that needs its blueprint and is loaded with plain `spec.Load` says so
+in the error, rather than reporting an object with no fields.
+
 ### Widening an enum
 
 A domain may add values to an enum the module declares. It **widens** the
@@ -70,14 +78,6 @@ value. comm pairs each notification event with the category it is muted
 under, in Go; a domain that adds an event still has nowhere to declare its
 category. That is comm's CM26 and is open.
 
-The reason is drift. Before catalog's CAT5, each domain restated the module's
-whole object set — 62 field declarations of which 60 were identical bar the
-description — so renaming a field under one domain left the other wrong with
-nothing failing until somebody loaded it.
-
-A spec that needs its blueprint and is loaded with plain `spec.Load` says so
-in the error, rather than reporting an object with no fields.
-
 ## What a field may say
 
 Types are `string`, `text`, `int`, `bool`, `json`, `timestamp` and `enum`.
@@ -86,6 +86,39 @@ producing a column nobody meant. A timestamp is text, so every dialect
 compares it the same way; `json` is `jsonb` on Postgres and text on SQLite,
 which is what lets the unit tests run on SQLite while document queries run on
 jsonb.
+
+### Carrying a timestamp
+
+A `timestamp` column may be carried either as a `string` already holding
+RFC 3339 text, which is what the first eight converted modules do, or as a
+`time.Time`, which `specstore` converts at the edge. `*time.Time` pairs with
+`nullable` the same way any pointer does.
+
+The stored text is fixed-width and always UTC — `specstore.TimeLayout`,
+nine fractional digits, a literal `Z`:
+
+```text
+2026-09-30T14:05:06.123456789Z
+```
+
+Both halves of that matter, because a timestamp is a **text** column and
+`ORDER BY` over it is a string comparison. `time.RFC3339Nano` trims trailing
+zeros, so it would sort `00:00:00.5Z` before `00:00:00.05Z`; a preserved zone
+offset would sort two identical instants apart. A module that carries its
+timestamps as strings is responsible for the same property in whatever it
+writes.
+
+Reading is lenient where writing is strict: a `time.Time` field accepts the
+layout above, `RFC3339Nano`, a Postgres `timestamptz` rendering, a bare
+`2006-01-02 15:04:05`, and a `time.Time` handed straight back by a driver —
+which is what a column still typed `timestamptz` under an adopted legacy
+table gives.
+
+A carrier the codec has no arm for is **refused by name**. This is not
+defensive: `reflect.Value.String()` does not panic on a non-string kind, it
+answers `"<time.Time Value>"`, so before the refusal a `time.Time` or a
+`[]byte` on a declared `string` column was written as that placeholder text
+and nothing said so until the row was read back.
 
 Flags are `primary` (several make a composite key, in declared order),
 `required`, `unique`, `immutable` and `default`. An enum adds `values`, and

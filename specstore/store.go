@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -214,6 +215,10 @@ func Encode(o spec.Object, v any) (map[string]any, error) {
 	return row, nil
 }
 
+const TimeLayout = "2006-01-02T15:04:05.000000000Z"
+
+var timeType = reflect.TypeOf(time.Time{})
+
 func cell(f spec.Field, fv reflect.Value) (any, error) {
 	if fv.Kind() == reflect.Pointer {
 		if fv.IsNil() {
@@ -223,16 +228,38 @@ func cell(f spec.Field, fv reflect.Value) (any, error) {
 	}
 	switch f.Type {
 	case spec.TypeInt:
+		if !fv.CanInt() {
+			return nil, fmt.Errorf("declared int, carried as %s", fv.Type())
+		}
 		return fv.Int(), nil
 	case spec.TypeFloat:
+		if !fv.CanFloat() {
+			return nil, fmt.Errorf("declared float, carried as %s", fv.Type())
+		}
 		return fv.Float(), nil
 	case spec.TypeBool:
+		if fv.Kind() != reflect.Bool {
+			return nil, fmt.Errorf("declared bool, carried as %s", fv.Type())
+		}
 		return fv.Bool(), nil
 	case spec.TypeJSON:
 		return document(fv)
 	default:
-		return fv.String(), nil
+		return text(f, fv)
 	}
+}
+
+func text(f spec.Field, fv reflect.Value) (any, error) {
+	if fv.Type() == timeType {
+		if f.Type != spec.TypeTimestamp {
+			return nil, fmt.Errorf("declared %s, carried as time.Time", f.Type)
+		}
+		return fv.Interface().(time.Time).UTC().Format(TimeLayout), nil
+	}
+	if fv.Kind() != reflect.String {
+		return nil, fmt.Errorf("declared %s, carried as %s", f.Type, fv.Type())
+	}
+	return fv.String(), nil
 }
 
 // document renders a json column's value. A string is already the document
@@ -294,6 +321,9 @@ func assign(field reflect.Value, raw any) error {
 		field.Set(held)
 		return nil
 	}
+	if field.Type() == timeType {
+		return assignTime(field, raw)
+	}
 	switch field.Kind() {
 	case reflect.String:
 		switch v := raw.(type) {
@@ -341,6 +371,33 @@ func assign(field reflect.Value, raw any) error {
 		return fmt.Errorf("no rule for a %s field", field.Kind())
 	}
 	return nil
+}
+
+func assignTime(field reflect.Value, raw any) error {
+	switch v := raw.(type) {
+	case time.Time:
+		field.Set(reflect.ValueOf(v.UTC()))
+		return nil
+	case string:
+		return parseTime(field, v)
+	case []byte:
+		return parseTime(field, string(v))
+	default:
+		return fmt.Errorf("cannot read %T as an instant", raw)
+	}
+}
+
+func parseTime(field reflect.Value, raw string) error {
+	if raw == "" {
+		return nil
+	}
+	for _, layout := range []string{TimeLayout, time.RFC3339Nano, "2006-01-02 15:04:05.999999999-07:00", "2006-01-02 15:04:05"} {
+		if at, err := time.Parse(layout, raw); err == nil {
+			field.Set(reflect.ValueOf(at.UTC()))
+			return nil
+		}
+	}
+	return fmt.Errorf("cannot read %q as an instant", raw)
 }
 
 func unmarshal(field reflect.Value, raw any) error {
