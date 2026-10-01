@@ -67,6 +67,9 @@ func Dispatch(s *Spec, d Deps) ([]Route, error) {
 	var problems []string
 	for _, name := range sortedKeys(s.Operations) {
 		op := s.Operations[name]
+		if op.Handled {
+			continue
+		}
 		method := mgr.MethodByName(op.Call)
 		if !method.IsValid() {
 			problems = append(problems, fmt.Sprintf(

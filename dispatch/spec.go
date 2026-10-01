@@ -58,6 +58,7 @@ type Operation struct {
 	Method      string   `json:"method"`
 	Path        string   `json:"path"`
 	Call        string   `json:"call"`
+	Handled     bool     `json:"handled,omitempty"`
 	Action      string   `json:"action"`
 	Tool        string   `json:"tool,omitempty"`
 	Status      int      `json:"status,omitempty"`
@@ -118,8 +119,11 @@ func (s *Spec) Validate() error {
 		if !strings.HasPrefix(op.Path, "/") {
 			add("operation %q: path %q does not start with /", name, op.Path)
 		}
-		if op.Call == "" {
-			add("operation %q names no manager method", name)
+		switch {
+		case op.Call == "" && !op.Handled:
+			add("operation %q names no manager method, and does not declare that the module handles it", name)
+		case op.Call != "" && op.Handled:
+			add("operation %q both names the manager method %s and claims the module handles it; it is one or the other", name, op.Call)
 		}
 
 		if op.Action == "" {
@@ -271,7 +275,7 @@ func (op Operation) validate(name string) []string {
 		add("operation %q overwrites a field, but takes no whole request to overwrite it on", name)
 	}
 
-	if len(op.Returns) == 0 {
+	if len(op.Returns) == 0 && !op.Handled {
 		add("operation %q renders nothing; a return is declared even when it is the whole body", name)
 	}
 	bodies := 0

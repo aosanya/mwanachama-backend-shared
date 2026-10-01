@@ -171,9 +171,6 @@ func (o Object) validate() []string {
 			add("object %q: field %q cannot be both a document and a key", o.Name, f.Name)
 		}
 		if f.Type == TypeBytes {
-			if f.Primary {
-				add("object %q: field %q holds opaque bytes and cannot be a key", o.Name, f.Name)
-			}
 			if f.Default != "" {
 				add("object %q: field %q holds opaque bytes and cannot carry the default %q", o.Name, f.Name, f.Default)
 			}

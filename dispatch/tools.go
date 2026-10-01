@@ -67,6 +67,9 @@ func Tools(s *Spec, d Deps) ([]Tool, error) {
 	var problems []string
 	for _, name := range sortedKeys(s.Operations) {
 		op := s.Operations[name]
+		if op.Handled {
+			continue
+		}
 		if strings.TrimSpace(op.Description) == "" {
 			problems = append(problems, fmt.Sprintf(
 				"operation %q has no description, and a tool nobody can read is a tool nobody calls", name))

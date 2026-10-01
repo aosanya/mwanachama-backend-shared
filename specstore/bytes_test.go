@@ -42,8 +42,6 @@ type Key struct {
 	Label  string `json:"label"`
 }
 
-var errNoKey = errors.New("no such key")
-
 func newKeyStore(t *testing.T) *specstore.Store {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
@@ -133,9 +131,8 @@ func TestBytesRefusesAStringCarrier(t *testing.T) {
 	}
 }
 
-func TestBytesCannotBeAKeyOrCarryADefault(t *testing.T) {
+func TestBytesCannotCarryADefaultOrAPattern(t *testing.T) {
 	for _, tc := range []struct{ name, field string }{
-		{"primary", `{"name": "secret", "type": "bytes", "description": "d", "primary": true}`},
 		{"default", `{"name": "secret", "type": "bytes", "description": "d", "default": "x"}`},
 		{"matches", `{"name": "secret", "type": "bytes", "description": "d", "matches": "slug"}`},
 	} {
@@ -147,3 +144,54 @@ func TestBytesCannotBeAKeyOrCarryADefault(t *testing.T) {
 		})
 	}
 }
+
+// A bytes column may be a key. Nothing in the engine renders a primary key
+// as text — Field.Primary is read only to emit the key columns, the not-null
+// and the absence of a default — and both dialects index and compare
+// bytea/blob natively. A key that is never a path parameter needs no text
+// form, and mwanachama-backend-comm's address hash is exactly that: the
+// keyed hash of an address, which is the row's whole identity.
+func TestBytesCanBeAKey(t *testing.T) {
+	raw := `{"module":"vault","domain":"d","instance":"i","objects":[{"name":"key","table":"keys","role":"key",
+	  "description":"One held key.","fields":[
+	    {"name":"digest","type":"bytes","description":"The key's own digest, which is its identity.","primary":true},
+	    {"name":"label","type":"string","description":"What it is for."}]}]}`
+	s, err := spec.Parse([]byte(raw))
+	if err != nil {
+		t.Fatalf("a bytes primary key was refused: %v", err)
+	}
+	type held struct {
+		Digest []byte
+		Label  string
+	}
+
+	db := openDB(t)
+	if err := spec.Migrate(db, s); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	ddl := s.DDL("sqlite")
+	if !strings.Contains(strings.Join(ddl, "\n"), "primary key (digest)") {
+		t.Fatalf("the emitted DDL does not key on digest:\n%s", strings.Join(ddl, "\n"))
+	}
+
+	st, err := specstore.New(db, s, map[string]any{"key": held{}})
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	ctx := context.Background()
+	digest := []byte{0x00, 0xff, 0x10, 0x80}
+	if err := st.Insert(ctx, "key", held{Digest: digest, Label: "phone salt"}); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	var out held
+	err = st.Take(st.Query(ctx, "key").Where("digest = ?", digest), "key", &out, errNoKey)
+	if err != nil {
+		t.Fatalf("look up by the bytes key: %v", err)
+	}
+	if !bytes.Equal(out.Digest, digest) || out.Label != "phone salt" {
+		t.Fatalf("read back %+v, want the digest and its label", out)
+	}
+}
+
+var errNoKey = errors.New("no such key")

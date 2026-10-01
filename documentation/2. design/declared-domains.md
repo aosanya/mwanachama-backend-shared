@@ -97,12 +97,20 @@ secret and a different column type from the `bytea` such a value already
 lives in. `mwanachama-backend-auth`'s phone-hashing salt is the first
 consumer.
 
-A bytes column is **opaque to the module**, so three declarations are refused
-by name rather than quietly ignored: it cannot be `primary` (a key the engine
-cannot compare as text or as a number), it cannot carry a `default` (there is
+A bytes column is **opaque to the module**, so two declarations are refused
+by name rather than quietly ignored: it cannot carry a `default` (there is
 no way to write raw bytes as a SQL default), and it cannot name a `matches`
-pattern (a pattern over bytes could never be applied). A `string` carrier on
-a declared bytes column is refused at `specstore.New`, the same direction as
+pattern (a pattern over bytes could never be applied).
+
+It **may** be `primary`. Nothing in the engine renders a key as text —
+`Primary` is read only to emit the key columns, the not-null and the absence
+of a default — and both dialects index and compare `bytea`/`blob` natively.
+`mwanachama-backend-comm`'s address hash is exactly this: the keyed hash of
+an address, which is the row's whole identity and never a path parameter. It
+is `bytea` in the live database, so declaring it `text` instead would have
+meant converting every existing row on adoption.
+
+A `string` carrier on a declared bytes column is refused at `specstore.New`, the same direction as
 every other carrier disagreement — this is the `reflect.Value.String()`
 placeholder class of bug the kind guards exist to stop.
 
