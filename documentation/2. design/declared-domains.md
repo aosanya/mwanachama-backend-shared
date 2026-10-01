@@ -283,6 +283,36 @@ What `Migrate` does **not** do is drop or alter anything. A column that stops
 being declared stays in the database; a retirement is a migration the module
 writes itself.
 
+### An adopted table keeps its own column types
+
+That `create table if not exists` has a consequence worth stating plainly: a
+table reached through `AdoptLegacy` keeps **every type its old hand-written
+SQL gave it**. `Migrate` renames it and creates what is missing; it never
+retypes what is there. On such a database the declaration still tells you a
+column's name and whether it is nullable, but not its type — and the types do
+diverge, because `Migrate` emits `timestamp` as `text` so the tests can run on
+SQLite, while the SQL these tables came from used real `timestamptz`.
+
+Anything generating SQL that depends on the type therefore has to **ask the
+database, not the declaration**:
+
+- `ColumnIsTextual(db, table, column)` reads the stored type
+  (`information_schema.columns`, or `pragma_table_info` on SQLite).
+- `DeclaresTextualColumn(o, column, dialect)` is the same answer from the
+  declaration, for when there is no database to ask yet.
+- `UnsetSQL(column, textual)` builds the "absent" predicate:
+  `(c IS NULL OR c = '')` for a text column, because a non-nullable text
+  column gets `default ''`, and `(c IS NULL)` for anything else.
+- `UnsetClause(db, o, table, column)` is the two composed, falling back to the
+  declaration when the database will not answer.
+- `specstore.Store.Unset(role, field)` is what a module's query code calls. It
+  caches per table and column, so this costs one query per column for the life
+  of the store.
+
+`mwanachama-backend-auth` is the worked case, and its
+`documentation/2. design/adopted-column-types.md` records what the drift
+actually broke there.
+
 ## The store
 
 `specstore.New(db, spec, carriers)` takes a map of role to a zero value of
@@ -381,3 +411,8 @@ The order matters, because each step is verifiable on its own:
 - **Per-instance provisioning.** `mwanachama-wakala-api` creates a table set
   per registered instance on demand rather than migrating once, and a
   registry that claims each physical name it creates does not exist yet.
+- **Reconciling an adopted table's column types with the declaration.** The
+  predicate helpers above work around the drift; nothing closes it. Having
+  `AdoptLegacy` alter each adopted column to its declared type would, but that
+  rewrites live data and changes this engine's contract for every adopting
+  repo, so it is a decision of its own.

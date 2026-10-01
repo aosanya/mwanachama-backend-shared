@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,9 @@ type Store struct {
 	db      *gorm.DB
 	spec    *spec.Spec
 	objects map[string]spec.Object
+
+	mu    sync.RWMutex
+	unset map[string]string
 }
 
 func New(db *gorm.DB, s *spec.Spec, carriers map[string]any) (*Store, error) {
@@ -102,6 +106,28 @@ func (st *Store) Object(role string) spec.Object {
 
 func (st *Store) Query(ctx context.Context, role string) *gorm.DB {
 	return st.db.WithContext(ctx).Table(st.Table(role))
+}
+
+func (st *Store) Unset(role, field string) string {
+	column := ColumnName(field)
+	table := st.Table(role)
+	key := table + "." + column
+
+	st.mu.RLock()
+	clause, ok := st.unset[key]
+	st.mu.RUnlock()
+	if ok {
+		return clause
+	}
+
+	clause = spec.UnsetClause(st.db, st.Object(role), table, column)
+	st.mu.Lock()
+	if st.unset == nil {
+		st.unset = map[string]string{}
+	}
+	st.unset[key] = clause
+	st.mu.Unlock()
+	return clause
 }
 
 func (st *Store) Take(q *gorm.DB, role string, out any, notFound error) error {

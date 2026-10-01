@@ -144,8 +144,12 @@ func DropIndexes(db *gorm.DB, table string, l Legacy) error {
 	var names []string
 	switch db.Dialector.Name() {
 	case "postgres":
-		if err := db.Raw(`select indexname from pg_indexes where tablename = ?`, table).
-			Scan(&names).Error; err != nil {
+		query := `select i.relname from pg_index x
+			join pg_class i on i.oid = x.indexrelid
+			join pg_class t on t.oid = x.indrelid
+			where t.relname = ?
+			  and not exists (select 1 from pg_constraint c where c.conindid = i.oid)`
+		if err := db.Raw(query, table).Scan(&names).Error; err != nil {
 			return fmt.Errorf("spec: read indexes of %s: %w", table, err)
 		}
 	default:
