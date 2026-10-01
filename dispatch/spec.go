@@ -264,7 +264,7 @@ func (op Operation) validate(name string) []string {
 		}
 	}
 	for p := range declared {
-		if !bound[p] {
+		if !bound[p] && !op.Handled {
 			add("operation %q: path declares {%s}, which no argument binds", name, p)
 		}
 	}

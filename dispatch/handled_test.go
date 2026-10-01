@@ -104,3 +104,14 @@ func TestAHandledOperationIsNotAnMCPTool(t *testing.T) {
 		}
 	}
 }
+
+// A handled operation binds its own path parameters, out of r.PathValue, so
+// the rule that every {placeholder} is claimed by a declared argument is the
+// called path's rule and not this one's.
+func TestAHandledOperationBindsItsOwnPathParameters(t *testing.T) {
+	raw := `{"operations":{"disable":{"method":"DELETE","path":"/credentials/{credentialID}",
+	  "handled":true,"action":"demo.credential.disable","description":"Withdraw one.","status":204}}}`
+	if _, err := dispatch.Parse([]byte(raw)); err != nil {
+		t.Fatalf("a handled operation with a path parameter was refused: %v", err)
+	}
+}
