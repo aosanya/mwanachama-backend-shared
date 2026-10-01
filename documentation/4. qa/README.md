@@ -42,11 +42,13 @@ here: skipping either gate for one action turns it red.
 - `specstore/store_listcap_test.go`'s `TestS24_OpenBug_ListHasNoDefaultCap`
   (S24) — the integration sweep's, left failing on purpose until `List`
   gains a default cap.
-- `spec/mount_collision_security_test.go`'s
-  `TestS28_OpenHole_MountNameSpellsTheDefaultMountsTable` (S28, P2) — the
-  security sweep's, 2026-09-29: with the default mount elided, a mount named
-  `patient` over a table `page_views` spells the default mount's
-  `patient_page_views` and both specs load. Red until `Validate` refuses it.
+
+`spec/mount_collision_security_test.go`'s
+`TestS28_OpenHole_MountNameSpellsTheDefaultMountsTable` (S28) is no longer
+red: S29's hashed physical name (f96ad8b) gives the mount its own segment, so
+a mount named `patient` can no longer spell the default mount's
+`patient_page_views`. It passes on 51d191d (security sweep, 2026-10-01) and
+still carries its `_OpenHole_` name until it is renamed as a regression guard.
 
 The mount segment (S26) is pinned green by
 `spec/mount_segment_security_test.go` (security sweep, 2026-09-29): an
