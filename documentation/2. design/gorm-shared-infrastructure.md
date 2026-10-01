@@ -203,7 +203,7 @@ just the five that migrated. Pure Go, no dependencies; a generic
 ### 11. Conformance-test-against-multiple-backends pattern
 
 This repo already has exactly this pattern for its own entity-graph engine
-— [`entitygraphtest/`](../../../entitygraphtest)'s `Run(t, dm, sm,
+— [`entitygraphtest/`](../../entitygraphtest)'s `Run(t, dm, sm,
 agencyID)`, exercised against both `memory` and `postgres` so the two
 backends can't silently drift apart (see `todo_done.md`'s S8). `accounting`
 independently reinvented the same idea one level up, as
