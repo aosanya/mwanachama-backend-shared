@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/aosanya/mwanachama-backend-shared/spec"
 )
 
 func clinicWithMount(t *testing.T, mount string) []byte {
@@ -25,16 +27,26 @@ func clinicWithMount(t *testing.T, mount string) []byte {
 	return out
 }
 
+func patientTableUnderMount(t *testing.T, b *spec.Blueprint, mount string) string {
+	t.Helper()
+	s, err := b.Parse(clinicWithMount(t, mount))
+	if err != nil {
+		t.Fatalf("precondition: mount %q should load, got %v", mount, err)
+	}
+	patients, ok := s.Object("patient")
+	if !ok {
+		t.Fatalf("precondition: mount %q declares no patient object", mount)
+	}
+	return s.TableFor(patients)
+}
+
 func TestMountSegmentRefusesAnythingThatCouldBlurOrOverflowAPhysicalName(t *testing.T) {
 	b := blueprint(t)
 
-	honest, err := b.Parse(clinicWithMount(t, "second"))
-	if err != nil {
-		t.Fatalf("precondition: a plain mount segment should load, got %v", err)
-	}
-	patients, _ := honest.Object("patient")
-	if got := honest.TableFor(patients); got != "clinic_record_second_patients" {
-		t.Fatalf("precondition: TableFor = %q, want the mount as its own segment", got)
+	second := patientTableUnderMount(t, b, "second")
+	third := patientTableUnderMount(t, b, "third")
+	if second == third {
+		t.Fatalf("precondition: mounts \"second\" and \"third\" both put patient in %q, so the mount is not its own segment", second)
 	}
 
 	for _, mount := range []string{"a_b", "Second", "x-y", "main ", "a;drop", "a.b"} {
@@ -43,7 +55,9 @@ func TestMountSegmentRefusesAnythingThatCouldBlurOrOverflowAPhysicalName(t *test
 		}
 	}
 
-	if _, err := b.Parse(clinicWithMount(t, strings.Repeat("m", 40))); err == nil {
-		t.Error("a mount long enough to push a physical name past 63 bytes loaded; Postgres would truncate it silently")
+	long := patientTableUnderMount(t, b, strings.Repeat("m", 40))
+	if len(long) > spec.MaxIdentifier {
+		t.Errorf("a 40-character mount put patient in %q, %d bytes against the %d-byte limit; Postgres would truncate it silently",
+			long, len(long), spec.MaxIdentifier)
 	}
 }

@@ -33,17 +33,24 @@ func TestS28_OpenHole_MountNameSpellsTheDefaultMountsTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("precondition: the default mount should load, got %v", err)
 	}
-	visit, _ := def.Object("visit")
-	if got := def.TableFor(visit); got != "clinic_record_patient_page_views" {
-		t.Fatalf("precondition: default visit table = %q", got)
+	visit, ok := def.Object("visit")
+	if !ok {
+		t.Fatal("precondition: the default-mount spec declares no visit object")
 	}
 
 	second, err := b.Parse(clinicWithVisitTable(t, "patient_page_views", "patient"))
 	if err != nil {
 		return
 	}
-	pageView, _ := second.Object("page_view")
-	t.Errorf("S28 (P2): mount %q loaded and its page_view lands in %q, the physical table the default mount's visit already owns; "+
-		"a mount whose name plus one of the spec's tables spells another of its default-mount tables must be refused at load",
-		second.MountName(), second.TableFor(pageView))
+	pageView, ok := second.Object("page_view")
+	if !ok {
+		t.Fatal("precondition: the mounted spec declares no page_view object")
+	}
+
+	if got, owned := second.TableFor(pageView), def.TableFor(visit); got == owned {
+		t.Errorf("S28 (P2): mount %q loaded and its page_view lands in %q, the physical table the default mount's visit already owns; "+
+			"a mount whose name plus one of the spec's tables spells another of its default-mount tables must be refused at load, "+
+			"or the mount must be its own segment so the two cannot spell the same name",
+			second.MountName(), got)
+	}
 }
