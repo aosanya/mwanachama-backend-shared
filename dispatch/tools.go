@@ -103,7 +103,7 @@ func Tools(s *Spec, d Deps) ([]Tool, error) {
 			Description: op.Description,
 			Action:      op.Action,
 			InputSchema: schema,
-			Invoke:      invokerFor(op, plan, props, method, table, fallback, d.Authorize, d.Caller),
+			Invoke:      invokerFor(op, plan, props, method, table, fallback, d.Authorize, d.Caller, d.Device),
 		})
 	}
 	if len(problems) > 0 {
@@ -156,7 +156,7 @@ func properties(op Operation, plan []slot, docs map[string]FieldDoc) ([]property
 	}
 
 	for _, sl := range plan {
-		if sl.arg.From == FromCaller {
+		if fromSession(sl.arg) {
 			continue
 		}
 		if !sl.arg.Whole {
@@ -190,7 +190,7 @@ func properties(op Operation, plan []slot, docs map[string]FieldDoc) ([]property
 	}
 
 	for _, a := range op.Args {
-		if a.positional() || a.Ignored || a.From == FromCaller {
+		if a.positional() || a.Ignored || fromSession(a) {
 			continue
 		}
 		target, ok := wholeStruct(plan)
@@ -386,7 +386,7 @@ func jsonKey(f reflect.StructField) string {
 	return name
 }
 
-func invokerFor(op Operation, plan []slot, props []property, method reflect.Value, table map[error]int, fallback int, authorize Authorizer, caller Caller) func(context.Context, json.RawMessage) (any, error) {
+func invokerFor(op Operation, plan []slot, props []property, method reflect.Value, table map[error]int, fallback int, authorize Authorizer, caller, device Caller) func(context.Context, json.RawMessage) (any, error) {
 	known := map[string]bool{}
 	required := map[string]bool{}
 	for _, p := range props {
@@ -416,7 +416,7 @@ func invokerFor(op Operation, plan []slot, props []property, method reflect.Valu
 			}
 		}
 
-		args, err := bindTool(ctx, op, plan, in, caller)
+		args, err := bindTool(ctx, op, plan, in, caller, device)
 		if err != nil {
 			return nil, err
 		}
@@ -445,12 +445,21 @@ func arguments(raw json.RawMessage) (map[string]json.RawMessage, error) {
 	return in, nil
 }
 
-func bindTool(ctx context.Context, op Operation, plan []slot, in map[string]json.RawMessage, caller Caller) ([]reflect.Value, error) {
+func fromSession(a Arg) bool { return a.From == FromCaller || a.From == FromDevice }
+
+func sessionOf(a Arg, caller, device Caller) Caller {
+	if a.From == FromDevice {
+		return device
+	}
+	return caller
+}
+
+func bindTool(ctx context.Context, op Operation, plan []slot, in map[string]json.RawMessage, caller, device Caller) ([]reflect.Value, error) {
 	out := make([]reflect.Value, 0, len(plan))
 	whole := -1
 	for _, sl := range plan {
-		if sl.arg.From == FromCaller {
-			v, err := fromText(callerOf(ctx, caller), sl.typ, sl.arg.As)
+		if fromSession(sl.arg) {
+			v, err := fromText(callerOf(ctx, sessionOf(sl.arg, caller, device)), sl.typ, sl.arg.As)
 			if err != nil {
 				return nil, err
 			}
@@ -482,7 +491,7 @@ func bindTool(ctx context.Context, op Operation, plan []slot, in map[string]json
 	}
 
 	if whole >= 0 {
-		if err := overwriteFromArgs(ctx, op, out[whole], in, caller); err != nil {
+		if err := overwriteFromArgs(ctx, op, out[whole], in, caller, device); err != nil {
 			return nil, err
 		}
 	}
@@ -553,7 +562,7 @@ func listOfOne(raw json.RawMessage) ([]json.RawMessage, error) {
 	return []json.RawMessage{raw}, nil
 }
 
-func overwriteFromArgs(ctx context.Context, op Operation, target reflect.Value, in map[string]json.RawMessage, caller Caller) error {
+func overwriteFromArgs(ctx context.Context, op Operation, target reflect.Value, in map[string]json.RawMessage, caller, device Caller) error {
 	for _, a := range op.Args {
 		if a.Into == "" {
 			continue
@@ -562,8 +571,8 @@ func overwriteFromArgs(ctx context.Context, op Operation, target reflect.Value, 
 		if !field.IsValid() || !field.CanSet() {
 			return fmt.Errorf("%s has no settable field %s", target.Type(), a.Into)
 		}
-		if a.From == FromCaller {
-			v, err := fromText(callerOf(ctx, caller), field.Type(), a.As)
+		if fromSession(a) {
+			v, err := fromText(callerOf(ctx, sessionOf(a, caller, device)), field.Type(), a.As)
 			if err != nil {
 				return err
 			}

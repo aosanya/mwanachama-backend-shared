@@ -27,6 +27,8 @@ type Deps struct {
 	Authorize Authorizer
 
 	Caller Caller
+
+	Device Caller
 }
 
 type Authorizer func(ctx context.Context, action string) error
@@ -79,7 +81,7 @@ func Dispatch(s *Spec, d Deps) ([]Route, error) {
 			Method:  op.Method,
 			Path:    s.Base + op.Path,
 			Action:  op.Action,
-			Handler: handlerFor(op, method, table, fallback, d.Authorize, d.Caller),
+			Handler: handlerFor(op, method, table, fallback, d.Authorize, d.Caller, d.Device),
 		})
 	}
 	if len(problems) > 0 {
@@ -144,7 +146,7 @@ func checkSignature(name string, op Operation, t reflect.Type) error {
 
 const opaque = "internal error"
 
-func handlerFor(op Operation, method reflect.Value, table map[error]int, fallback int, authorize Authorizer, caller Caller) http.HandlerFunc {
+func handlerFor(op Operation, method reflect.Value, table map[error]int, fallback int, authorize Authorizer, caller, device Caller) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if authorize != nil {
 			if err := authorize(r.Context(), op.Action); err != nil {
@@ -153,7 +155,7 @@ func handlerFor(op Operation, method reflect.Value, table map[error]int, fallbac
 			}
 		}
 
-		args, err := bind(op, method.Type(), r, caller)
+		args, err := bind(op, method.Type(), r, caller, device)
 		if err != nil {
 			httpwire.WriteErr(w, http.StatusBadRequest, err.Error())
 			return
@@ -193,7 +195,7 @@ func render(w http.ResponseWriter, op Operation, values []reflect.Value) {
 	httpwire.WriteJSON(w, op.status(), body)
 }
 
-func bind(op Operation, t reflect.Type, r *http.Request, caller Caller) ([]reflect.Value, error) {
+func bind(op Operation, t reflect.Type, r *http.Request, caller, device Caller) ([]reflect.Value, error) {
 	var body map[string]json.RawMessage
 	if needsBody(op) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -232,7 +234,7 @@ func bind(op Operation, t reflect.Type, r *http.Request, caller Caller) ([]refle
 			}
 			continue
 		}
-		v, err := bindOne(a, want, r, body, caller)
+		v, err := bindOne(a, want, r, body, caller, device)
 		if err != nil {
 			return nil, err
 		}
@@ -240,14 +242,14 @@ func bind(op Operation, t reflect.Type, r *http.Request, caller Caller) ([]refle
 	}
 
 	if whole >= 0 {
-		if err := overwrite(op, out[whole], r, caller); err != nil {
+		if err := overwrite(op, out[whole], r, caller, device); err != nil {
 			return nil, err
 		}
 	}
 	return out, nil
 }
 
-func overwrite(op Operation, target reflect.Value, r *http.Request, caller Caller) error {
+func overwrite(op Operation, target reflect.Value, r *http.Request, caller, device Caller) error {
 	for _, a := range op.Args {
 		if a.Into == "" {
 			continue
@@ -257,8 +259,11 @@ func overwrite(op Operation, target reflect.Value, r *http.Request, caller Calle
 			return fmt.Errorf("%s has no settable field %s", target.Type(), a.Into)
 		}
 		text := r.PathValue(a.As)
-		if a.From == FromCaller {
+		switch a.From {
+		case FromCaller:
 			text = callerOf(r.Context(), caller)
+		case FromDevice:
+			text = callerOf(r.Context(), device)
 		}
 		v, err := fromText(text, field.Type(), a.As)
 		if err != nil {
@@ -340,10 +345,12 @@ func wholeValue(a Arg, want reflect.Type, r *http.Request) (reflect.Value, error
 	return wholeBody(want, r)
 }
 
-func bindOne(a Arg, want reflect.Type, r *http.Request, body map[string]json.RawMessage, caller Caller) (reflect.Value, error) {
+func bindOne(a Arg, want reflect.Type, r *http.Request, body map[string]json.RawMessage, caller, device Caller) (reflect.Value, error) {
 	switch a.From {
 	case FromCaller:
 		return fromText(callerOf(r.Context(), caller), want, a.As)
+	case FromDevice:
+		return fromText(callerOf(r.Context(), device), want, a.As)
 	case FromPath:
 		return fromText(r.PathValue(a.As), want, a.As)
 	case FromQuery:
