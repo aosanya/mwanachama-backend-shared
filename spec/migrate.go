@@ -78,6 +78,11 @@ func (f Field) columnType(dialect string) string {
 		return "double precision"
 	case TypeBool:
 		return "boolean"
+	case TypeBytes:
+		if dialect == "postgres" {
+			return "bytea"
+		}
+		return "blob"
 	case TypeJSON:
 		// The split that lets the unit tests run on SQLite while the real
 		// document queries run on jsonb. SQLite has JSON1, so json_extract

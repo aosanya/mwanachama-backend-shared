@@ -219,6 +219,8 @@ const TimeLayout = "2006-01-02T15:04:05.000000000Z"
 
 var timeType = reflect.TypeOf(time.Time{})
 
+var bytesType = reflect.TypeOf([]byte(nil))
+
 func cell(f spec.Field, fv reflect.Value) (any, error) {
 	if fv.Kind() == reflect.Pointer {
 		if fv.IsNil() {
@@ -244,9 +246,21 @@ func cell(f spec.Field, fv reflect.Value) (any, error) {
 		return fv.Bool(), nil
 	case spec.TypeJSON:
 		return document(fv)
+	case spec.TypeBytes:
+		return opaque(fv)
 	default:
 		return text(f, fv)
 	}
+}
+
+func opaque(fv reflect.Value) (any, error) {
+	if fv.Type() != bytesType {
+		return nil, fmt.Errorf("declared bytes, carried as %s", fv.Type())
+	}
+	if fv.Len() == 0 {
+		return nil, nil
+	}
+	return fv.Bytes(), nil
 }
 
 func text(f spec.Field, fv reflect.Value) (any, error) {
@@ -324,6 +338,9 @@ func assign(field reflect.Value, raw any) error {
 	if field.Type() == timeType {
 		return assignTime(field, raw)
 	}
+	if field.Type() == bytesType {
+		return assignBytes(field, raw)
+	}
 	switch field.Kind() {
 	case reflect.String:
 		switch v := raw.(type) {
@@ -371,6 +388,19 @@ func assign(field reflect.Value, raw any) error {
 		return fmt.Errorf("no rule for a %s field", field.Kind())
 	}
 	return nil
+}
+
+func assignBytes(field reflect.Value, raw any) error {
+	switch v := raw.(type) {
+	case []byte:
+		field.SetBytes(append([]byte(nil), v...))
+		return nil
+	case string:
+		field.SetBytes([]byte(v))
+		return nil
+	default:
+		return fmt.Errorf("cannot read %T as bytes", raw)
+	}
 }
 
 func assignTime(field reflect.Value, raw any) error {

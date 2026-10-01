@@ -80,12 +80,37 @@ category. That is comm's CM26 and is open.
 
 ## What a field may say
 
-Types are `string`, `text`, `int`, `bool`, `json`, `timestamp` and `enum`.
-The set is closed: a type with no arm fails when the spec loads rather than
-producing a column nobody meant. A timestamp is text, so every dialect
-compares it the same way; `json` is `jsonb` on Postgres and text on SQLite,
-which is what lets the unit tests run on SQLite while document queries run on
-jsonb.
+Types are `string`, `text`, `int`, `bool`, `json`, `timestamp`, `enum` and
+`bytes`. The set is closed: a type with no arm fails when the spec loads
+rather than producing a column nobody meant. A timestamp is text, so every
+dialect compares it the same way; `json` is `jsonb` on Postgres and text on
+SQLite, which is what lets the unit tests run on SQLite while document
+queries run on jsonb.
+
+### Carrying opaque bytes
+
+`bytes` is `bytea` on Postgres and `blob` on SQLite, and is carried as a Go
+`[]byte`. It exists because **a text column cannot hold key material**: raw
+bytes are not valid UTF-8, so storing them as `text` is lossy, and storing
+them as `json` would base64 them into a document — a strange home for a
+secret and a different column type from the `bytea` such a value already
+lives in. `mwanachama-backend-auth`'s phone-hashing salt is the first
+consumer.
+
+A bytes column is **opaque to the module**, so three declarations are refused
+by name rather than quietly ignored: it cannot be `primary` (a key the engine
+cannot compare as text or as a number), it cannot carry a `default` (there is
+no way to write raw bytes as a SQL default), and it cannot name a `matches`
+pattern (a pattern over bytes could never be applied). A `string` carrier on
+a declared bytes column is refused at `specstore.New`, the same direction as
+every other carrier disagreement — this is the `reflect.Value.String()`
+placeholder class of bug the kind guards exist to stop.
+
+**Only a Postgres run proves the column type.** SQLite is dynamically typed
+and stores whatever it is handed, so a `bytes` field wrongly emitted as
+`text` still round-trips there — the same blindness that hides an adopted
+`timestamptz`. `specstore/bytes_test.go` therefore asserts on the generated
+DDL as well as on the round trip.
 
 ### Carrying a timestamp
 

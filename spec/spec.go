@@ -79,11 +79,14 @@ const (
 
 	// TypeEnum is a string restricted to Values.
 	TypeEnum FieldType = "enum"
+
+	TypeBytes FieldType = "bytes"
 )
 
 var fieldTypes = map[FieldType]bool{
 	TypeString: true, TypeText: true, TypeInt: true, TypeFloat: true,
 	TypeBool: true, TypeJSON: true, TypeTimestamp: true, TypeEnum: true,
+	TypeBytes: true,
 }
 
 // Field is one column on one object.
