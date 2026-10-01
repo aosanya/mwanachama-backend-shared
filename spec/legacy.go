@@ -8,6 +8,8 @@ import (
 )
 
 type Legacy struct {
+	Tables map[string]string
+
 	Columns map[string]string
 
 	IndexPrefixes []string
@@ -36,12 +38,27 @@ func LegacyTables(s *Spec, o Object) []string {
 	return out
 }
 
+func legacyTablesWith(s *Spec, o Object, l Legacy) []string {
+	declared := s.TableFor(o)
+	out := make([]string, 0, len(l.Tables)+3)
+	if o.Role != "" {
+		if named, ok := l.Tables[o.Role]; ok && named != declared {
+			out = append(out, named)
+		}
+	}
+	return append(out, LegacyTables(s, o)...)
+}
+
 func Adopted(db *gorm.DB, s *Spec) (bool, error) {
+	return AdoptedWith(db, s, Legacy{})
+}
+
+func AdoptedWith(db *gorm.DB, s *Spec, l Legacy) (bool, error) {
 	declared := make([]string, 0, len(s.Objects))
 	legacy := make([]string, 0, len(s.Objects))
 	for _, o := range s.Objects {
 		declared = append(declared, s.TableFor(o))
-		legacy = append(legacy, LegacyTables(s, o)...)
+		legacy = append(legacy, legacyTablesWith(s, o, l)...)
 	}
 
 	held, err := TablesNamed(db, append(append([]string{}, declared...), legacy...))
@@ -66,7 +83,7 @@ func AdoptLegacy(db *gorm.DB, s *Spec, l Legacy) error {
 	for _, o := range s.Objects {
 		declared := s.TableFor(o)
 
-		for _, legacy := range LegacyTables(s, o) {
+		for _, legacy := range legacyTablesWith(s, o, l) {
 			if !m.HasTable(legacy) {
 				continue
 			}
