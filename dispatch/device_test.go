@@ -179,3 +179,30 @@ func TestADeviceArgumentCannotBeAnythingElse(t *testing.T) {
 		t.Fatalf("err = %v, want a refusal naming the session", err)
 	}
 }
+
+// A Table is how every converted repo mounts, so Mount has to carry the
+// device the same way it carries the caller — otherwise a declared device
+// argument binds to the empty string through that path only.
+func TestATableMountCarriesTheDevice(t *testing.T) {
+	m := &keyManager{}
+	table := dispatch.NewTable([]byte(deviceSpec), map[string]error{})
+
+	routes, err := table.Build(m, dispatch.Mount{
+		Caller: func(context.Context) string { return "actor-1" },
+		Device: func(context.Context) string { return "handset-9" },
+	})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	mux := http.NewServeMux()
+	for _, r := range routes {
+		mux.Handle(r.Method+" "+r.Path, r.Handler)
+	}
+
+	if rec := do(t, mux, http.MethodPost, "/keys", `{"key_id":"k1","public_key":"pk"}`); rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	if m.gotDevice != "handset-9" {
+		t.Fatalf("device = %q, want handset-9 through the Table mount", m.gotDevice)
+	}
+}

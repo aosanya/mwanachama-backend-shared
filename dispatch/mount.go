@@ -9,6 +9,7 @@ import (
 type Mount struct {
 	Authorize Authorizer
 	Caller    Caller
+	Device    Caller
 }
 
 type Table struct {
@@ -43,7 +44,8 @@ func (t *Table) Build(manager any, m Mount) ([]Route, error) {
 		return nil, err
 	}
 	return Dispatch(s, Deps{
-		Manager: manager, Errors: t.sentinels, Authorize: m.Authorize, Caller: m.Caller,
+		Manager: manager, Errors: t.sentinels,
+		Authorize: m.Authorize, Caller: m.Caller, Device: m.Device,
 	})
 }
 
@@ -56,7 +58,7 @@ func (t *Table) Routes(manager any, m Mount) []Route {
 }
 
 func (t *Table) Split(manager any, m Mount) Split {
-	open := Anonymous(t.Routes(manager, Mount{Caller: m.Caller}), t.anonymous...)
+	open := Anonymous(t.Routes(manager, Mount{Caller: m.Caller, Device: m.Device}), t.anonymous...)
 	gated := Anonymous(t.Routes(manager, m), t.anonymous...)
 	return Split{Anonymous: open.Anonymous, Gated: gated.Gated}
 }
