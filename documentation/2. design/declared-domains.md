@@ -206,10 +206,11 @@ against a strict alphabet rather than escaped**. `NamePattern` is lowercase,
 starting with a letter, words joined by single underscores. Never relax this
 to "escape it instead".
 
-A physical name is **`<instance>_hashOf(<module>_<mount>_<object>)`** —
-`agy1f2e3d4c_8766f69928a18f58`. Only the instance stays readable; everything
-that identifies the table *within* that instance is a 16-hex-character SHA-256
-digest of its **raw name**, `<module>_<mount>_<object>`.
+A physical name is **`<instance>_hashOf(<mount>)_hashOf(<module>_<object>)`**
+— `wakala_0d6e4079_b21db826d3c0` for catalog's `suggestion_comments` object
+mounted as `main` on instance `wakala` (verified by calling `TableFor`
+directly). Only the instance stays readable; the mount and the object each
+get their own digest rather than sharing one.
 
 - **`instance`** separates tenants, and stays readable so a table can be
   attributed to one at a glance. It is the agency's `tableSlug()` for a module
@@ -217,11 +218,19 @@ digest of its **raw name**, `<module>_<mount>_<object>`.
 - **`module`** separates modules. Without it a catalog instance named `agency`
   and an agency instance of the same name both want one table.
 - **`mount`** separates two mounts of the *same* module within one instance —
-  a tenant with a supplier catalog and a product catalog. It is **always**
-  present in the raw name, defaulting to `DefaultMount` (`main`).
+  a tenant with a supplier catalog and a product catalog. `MountKey` is an
+  8-hex-character SHA-256 digest of the mount name alone (`HashMount`), so
+  every table of one mount sorts together as a block regardless of how long
+  that mount's name is.
+- **`object`** is a 12-hex-character SHA-256 digest (`HashName`, via
+  `HashLength`) of the **raw name** `<module>_<object>` — not
+  `<module>_<mount>_<object>`; the mount is hashed on its own, separately,
+  into the segment above.
 
-`RawNameFor` builds the raw name, `HashName` digests it, `TableFor` joins the
-two, and `IndexFor` keeps a readable suffix on the hashed table
+`RawNameFor` builds `<module>_<mount>_<object>` for the name registry;
+`TableFor` joins `instance`, `MountKey()` and `HashName` of the *module/object*
+pair (dropping the mount from that second digest, since it already has its
+own segment); `IndexFor` keeps a readable suffix on the hashed table
 (`<table>_<index>_idx`) — the one piece of debuggability left, and it fits.
 
 ### Why a hash, and what it costs
