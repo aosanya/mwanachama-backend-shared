@@ -11,14 +11,17 @@ so a real Postgres is never reached by default.
 
 ## What the suite covers
 
-Test functions per package, counted 2026-09-29 at `a95fbd7`:
+Test functions per package, counted 2026-10-02 at `a8a70cb` (`go test
+./<pkg>/ -list '.*'`; the 2026-09-29 count below this table was stale —
+`dispatch` and `spec` had each grown by 15+ test functions and `specstore`
+had more than doubled since then):
 
 | Package | Tests | What it holds |
 |---------|-------|---------------|
-| `dispatch` | 61 | the operations engine — binding, routes, MCP tools and the authorizer gate |
-| `spec` | 26 | loading, validation and blueprint merge of a declared domain; the migrator |
+| `dispatch` | 76 | the operations engine — binding, routes, MCP tools and the authorizer gate |
+| `spec` | 53 | loading, validation and blueprint merge of a declared domain; the migrator |
 | `entitygraph` | 23 | the entity-graph contract |
-| `specstore` | 14 | the codec and query helpers every declared module stores through |
+| `specstore` | 31 | the codec and query helpers every declared module stores through |
 | `gormutil` | 13 | shared GORM helpers |
 | `httpwire` | 8 | the `Route` type and JSON error writing |
 | `orgpolicy`, `orgpolicy/models` | 8, 6 | org policy store and types |
