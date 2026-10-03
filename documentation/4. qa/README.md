@@ -11,15 +11,15 @@ so a real Postgres is never reached by default.
 
 ## What the suite covers
 
-Test functions per package, counted 2026-10-02 at `a8a70cb` (`go test
-./<pkg>/ -list '.*'`; the 2026-09-29 count below this table was stale —
-`dispatch` and `spec` had each grown by 15+ test functions and `specstore`
-had more than doubled since then):
+Test functions per package, counted 2026-10-02 at `05f2fe7` (`go test
+./<pkg>/ -list '.*'`; the prior count below this table was stale —
+`spec` had grown by one test (S52's `migrate_evolve_test.go`) since
+`a8a70cb`):
 
 | Package | Tests | What it holds |
 |---------|-------|---------------|
 | `dispatch` | 76 | the operations engine — binding, routes, MCP tools and the authorizer gate |
-| `spec` | 53 | loading, validation and blueprint merge of a declared domain; the migrator |
+| `spec` | 54 | loading, validation and blueprint merge of a declared domain; the migrator |
 | `entitygraph` | 23 | the entity-graph contract |
 | `specstore` | 31 | the codec and query helpers every declared module stores through |
 | `gormutil` | 13 | shared GORM helpers |
@@ -45,6 +45,10 @@ here: skipping either gate for one action turns it red.
 - `specstore/store_listcap_test.go`'s `TestS24_OpenBug_ListHasNoDefaultCap`
   (S24) — the integration sweep's, left failing on purpose until `List`
   gains a default cap.
+- `spec/migrate_evolve_test.go`'s
+  `TestS52_OpenBug_SecondMigrateDoesNotAddANewColumn` (S52) — the integration
+  sweep's, left failing on purpose until a second `Migrate` against an
+  already-provisioned table alters it to add a field the blueprint gained.
 
 `spec/mount_collision_security_test.go`'s
 `TestS28_OpenHole_MountNameSpellsTheDefaultMountsTable` (S28) is no longer
