@@ -2,7 +2,7 @@
 
 `dispatch/` turns a declared route table into `[]httpwire.Route`. It is the
 runtime half of the org-wide spec-driven shape designed in
-[architecture-spec-driven-modules.md](../../../developer/documentation/2.%20design/architecture-spec-driven-modules.md)
+[architecture-spec-driven-modules.md](../../../mwanachama-developer/documentation/2.%20design/architecture-spec-driven-modules.md)
 (the website's W14); the store half is `spec/` and `specstore/`, next door —
 see [declared-domains.md](declared-domains.md).
 

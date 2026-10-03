@@ -2,7 +2,7 @@
 
 `spec/` and `specstore/` are the storage half of the org-wide shape designed
 in
-[architecture-spec-driven-modules.md](../../../developer/documentation/2.%20design/architecture-spec-driven-modules.md):
+[architecture-spec-driven-modules.md](../../../mwanachama-developer/documentation/2.%20design/architecture-spec-driven-modules.md):
 a module's objects are **data**, not Go row structs, and its tables come from
 that data. [dispatcher.md](dispatcher.md) is the other half — the same idea
 applied to the route table and the MCP tools.
