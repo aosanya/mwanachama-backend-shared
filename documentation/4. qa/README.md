@@ -11,14 +11,14 @@ so a real Postgres is never reached by default.
 
 ## What the suite covers
 
-Test functions per package, counted 2026-10-03 at this run's HEAD (`go test
-./<pkg>/ -list '.*'`; `spec` grew by one more test this run — S53's
-`migrate_drop_field_test.go` — on top of S52's):
+Test functions per package, counted 2026-10-04 at this run's HEAD (`go test
+./<pkg>/ -list '.*'`; `spec` grew by one more test this run — S54's
+`migrate_index_redefine_test.go` — on top of S52/S53's):
 
 | Package | Tests | What it holds |
 |---------|-------|---------------|
 | `dispatch` | 76 | the operations engine — binding, routes, MCP tools and the authorizer gate |
-| `spec` | 55 | loading, validation and blueprint merge of a declared domain; the migrator |
+| `spec` | 56 | loading, validation and blueprint merge of a declared domain; the migrator |
 | `entitygraph` | 23 | the entity-graph contract |
 | `specstore` | 31 | the codec and query helpers every declared module stores through |
 | `gormutil` | 13 | shared GORM helpers |
@@ -53,6 +53,11 @@ here: skipping either gate for one action turns it red.
   integration sweep's, left failing on purpose until dropping a `required`
   field's column (or relaxing its `not null`) is part of the same fix S52
   needs.
+- `spec/migrate_index_redefine_test.go`'s
+  `TestS54_OpenBug_SecondMigrateDoesNotEnforceARedeclaredUniqueIndex` (S54)
+  — the integration sweep's, left failing on purpose until a second
+  `Migrate` that redeclares an existing index as `unique: true` actually
+  enforces it on an already-provisioned table.
 
 `spec/mount_collision_security_test.go`'s
 `TestS28_OpenHole_MountNameSpellsTheDefaultMountsTable` (S28) is no longer
