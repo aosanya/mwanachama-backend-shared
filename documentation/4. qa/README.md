@@ -23,8 +23,8 @@ Test functions per package (`go test ./<pkg>/ -list '.*'`), counted
 | `specstore` | 31 | the codec and query helpers every declared module stores through |
 | `gormutil` | 13 | shared GORM helpers |
 | `httpwire` | 8 | the `Route` type and JSON error writing |
-| `orgpolicy`, `orgpolicy/models` | 8, 6 | org policy store and types |
-| `orgsettings`, `orgsettings/models` | 5, 6 | org settings store and types |
+| `orgpolicy`, `orgpolicy/models` | 9, 6 | org policy store and types |
+| `orgsettings`, `orgsettings/models` | 6, 6 | org settings store and types |
 | `postgres` | 3 | the Postgres entity-graph backend |
 | `gormtest`, `vocab`, `memory` | 2, 2, 1 | test helpers, vocabulary, in-memory backend |
 
@@ -69,6 +69,16 @@ red: S29's hashed physical name (f96ad8b) gives the mount its own segment, so
 a mount named `patient` can no longer spell the default mount's
 `patient_page_views`. It passes on 51d191d (security sweep, 2026-10-01) and
 still carries its `_OpenHole_` name until it is renamed as a regression guard.
+
+The org routes are pinned green through their own route tables (security
+sweep, 2026-10-09): `orgsettings/guest_fence_security_test.go` — an attribute
+the property catalog does not declare is stored by `PUT /{slug}` yet never
+reaches either guest `GET`, and a body `slug` never moves the write off the
+path's (mutation-checked by returning the stored row instead of `Public()`);
+`orgpolicy/caller_owned_security_test.go` — `updated_by` is the caller's, a
+body-set `updated_by`/`updated_at` is never recorded, and a trailing second
+value or a case-variant duplicate key is refused (mutation-checked by
+decoding a body `updated_by` over the caller's).
 
 The mount segment (S26) is pinned green by
 `spec/mount_segment_security_test.go` (security sweep, 2026-09-29): an
