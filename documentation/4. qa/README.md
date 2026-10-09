@@ -11,14 +11,14 @@ so a real Postgres is never reached by default.
 
 ## What the suite covers
 
-Test functions per package, counted 2026-10-03 at this run's HEAD (`go test
-./<pkg>/ -list '.*'`; `spec` grew by one more test this run — S53's
-`migrate_drop_field_test.go` — on top of S52's):
+Test functions per package (`go test ./<pkg>/ -list '.*'`), counted
+2026-10-03 and re-counted for `dispatch` and `spec` on 2026-10-09 — S54's
+`querykey_fallback_test.go` and S55's `default_literal_security_test.go`:
 
 | Package | Tests | What it holds |
 |---------|-------|---------------|
-| `dispatch` | 76 | the operations engine — binding, routes, MCP tools and the authorizer gate |
-| `spec` | 55 | loading, validation and blueprint merge of a declared domain; the migrator |
+| `dispatch` | 77 | the operations engine — binding, routes, MCP tools and the authorizer gate |
+| `spec` | 56 | loading, validation and blueprint merge of a declared domain; the migrator |
 | `entitygraph` | 23 | the entity-graph contract |
 | `specstore` | 31 | the codec and query helpers every declared module stores through |
 | `gormutil` | 13 | shared GORM helpers |
@@ -53,6 +53,15 @@ here: skipping either gate for one action turns it red.
   integration sweep's, left failing on purpose until dropping a `required`
   field's column (or relaxing its `not null`) is part of the same fix S52
   needs.
+- `dispatch/querykey_fallback_test.go`'s
+  `TestS54_OpenBug_UntaggedQueryFieldBindsOnlyAllLowercaseNotSnakeCase` (S54)
+  — the integration sweep's, left failing on purpose until an untagged query
+  field binds on its snake_case name.
+- `spec/default_literal_security_test.go`'s
+  `TestS55_OpenHole_NumericDefaultReachesTheDDLUnquoted` (S55) — the security
+  sweep's, left failing on purpose until `spec.Parse` refuses an `int`,
+  `float` or `bool` default that is not a literal of its type; today one
+  carrying a stacked statement is executed by `spec.Migrate`.
 
 `spec/mount_collision_security_test.go`'s
 `TestS28_OpenHole_MountNameSpellsTheDefaultMountsTable` (S28) is no longer
