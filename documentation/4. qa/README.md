@@ -39,6 +39,16 @@ end to end through a real module's route table by
 2026-09-29), which was mutation-checked against `handlerFor` and `invokerFor`
 here: skipping either gate for one action turns it red.
 
+The anonymous split keys on the action id, so it is only as narrow as one
+action per operation. `dispatch/gate_declaration_security_test.go` (security
+sweep, 2026-10-10) pins that `Parse` refuses a DELETE claiming the action an
+open GET carries, refuses an operation declaring no action, and that opening
+one action publishes exactly one route (mutation-checked by disabling both
+refusals in `Spec.Validate`: two of the three turn red). A duplicated JSON
+key in an operations file is decoded last-wins — an operation or its
+`action` can be silently replaced — but no shipped declaration in the six
+repos carries one, and none is built from caller data.
+
 ## Red by design
 
 - `specstore/store_listcap_test.go`'s `TestS24_OpenBug_ListHasNoDefaultCap`
