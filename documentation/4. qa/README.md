@@ -72,6 +72,11 @@ repos carries one, and none is built from caller data.
   sweep's, left failing on purpose until `spec.Parse` refuses an `int`,
   `float` or `bool` default that is not a literal of its type; today one
   carrying a stacked statement is executed by `spec.Migrate`.
+- `identity/identity_security_test.go`'s
+  `TestS60_OpenHole_ARawCarriesInvisibleAndLineBreakingCharacters` (S60) —
+  the security sweep's, left failing on purpose until `identity.Parse`
+  refuses a bidi override, a zero-width character or a line separator in the
+  identity; today each is accepted as a distinct raw that renders as another.
 
 `spec/mount_collision_security_test.go`'s
 `TestS28_OpenHole_MountNameSpellsTheDefaultMountsTable` (S28) is no longer
