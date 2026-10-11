@@ -114,6 +114,22 @@ the engine's own reference is
 [documentation/2. design/](documentation/2.%20design/), beside `dispatcher.md`
 and `httpwire.md`, which document the operations half of the same shape.
 
+## identity
+
+`identity/` (S56, 2026-10-11) is the fourth role, and the mechanism behind §9
+of the developer repo's `architecture-spec-driven-modules.md`: a row id is
+not an identity, so each module says which of its fields survives versions by
+implementing `identity.Owner` — `StableIdentity(ctx, object, id)` answering a
+raw `<module>/<instance>/<identity>` and `Resolve(ctx, raw)` turning it back
+into the current row. The package holds the raw's shape (`Parse`, `New`,
+`SegmentPattern`, pinned equal to `spec.SegmentPattern` by test), the constant
+key (`KeyOf`, the full SHA-256 hex, untruncated because
+`mwanachama-backend-context` already stores it as a vertex key) and the three
+sentinels an owner wraps: `ErrInvalidRaw`, `ErrNotFound` (the confirmed miss)
+and `ErrNotOwned` (another module's raw, which is not a miss). It imports
+nothing from `spec`. The owners implement it on their own boards; see
+[declared-domains.md](documentation/2.%20design/declared-domains.md#a-thing-has-one-identity).
+
 ## Code comments
 
 Write code with no comments. Not one-liners above a function, not section

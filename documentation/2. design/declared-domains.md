@@ -408,6 +408,68 @@ The order matters, because each step is verifiable on its own:
 6. **Rebuild every consumer**, then update the repo's `CLAUDE.md`, which will
    still be telling the next session to write row structs.
 
+## A thing has one identity
+
+`identity/` (S56, 2026-10-11) is the mechanism behind §9 of the standard: a
+row id is not an identity. Agency re-mints every uuid on a draft fork and git
+mints a new blob row on every content change, so anything keyed on those
+forgets the thing on the next ordinary edit. What survives is the owner's own
+stable handle — agency's `Code`, git's repository plus path, taskmanager's
+uuid — and **each module says which field that is by implementing one
+interface**:
+
+```go
+type Owner interface {
+	StableIdentity(ctx context.Context, object, id string) (string, error)
+	Resolve(ctx context.Context, raw string) (object, id string, err error)
+}
+```
+
+`StableIdentity` answers a **raw** of the form `<module>/<instance>/<identity>`
+(`agency/agy1f2e3d4c/R-3`, `git/auth/internal/store.go`). `Resolve` is the way
+back: the owner's *current* row id for a raw, so a consumer that only ever
+held the constant name can still fetch the thing with the owner's own tools.
+The identity rule lives in the owner and nowhere else; a consumer that wrote
+"for agency it is Code" into its own files would be naming a domain, and
+would be wrong the day agency changed its mind.
+
+The raw's shape is this package's, not the owner's. `Parse` holds the first
+two segments to `SegmentPattern` — the same alphabet as `spec.SegmentPattern`,
+restated rather than imported so a consumer that only relates things does
+not pull in the storage engine, and pinned equal by test — and the identity
+to any non-empty UTF-8 with no control character and no leading or trailing
+whitespace. Slashes inside the identity are allowed and the split is on the
+first two only, because git's identity is a path. `New` builds one from its
+parts under the same checks, and `Raw.String` is the one spelling.
+
+`KeyOf(raw)` is the **constant key**: the full SHA-256 of the raw's bytes as
+64 lower-case hex characters (`KeyPattern`). It is the same move `HashName`
+and `TableFor` make for a table name, but untruncated — a key is compared,
+never spent against Postgres's identifier budget, and
+`mwanachama-backend-context` already stores the full digest as a vertex key,
+so truncating here would have renamed every vertex. A consumer hashes the
+raw and stores the key beside it; the owner never learns who asked.
+
+Three sentinels carry the contract's answers, and an owner wraps them so
+`errors.Is` reaches them through whatever it adds:
+
+- `ErrInvalidRaw` — the string is not `<module>/<instance>/<identity>` or a
+  segment is off the alphabet. `Parse` and `New` return it; an owner's
+  `Resolve` returns it unchanged for a malformed raw.
+- `ErrNotFound` — the row behind `(object, id)` or behind the raw is gone.
+  From `Resolve` this is the **confirmed miss** a consumer's staleness
+  handling keys on (context's #40, #56): a thing the owner itself no longer
+  has.
+- `ErrNotOwned` — the raw names another module or another instance. This is
+  not a miss: the thing may well exist, under an owner the caller should
+  have asked instead. Folding it into `ErrNotFound` would mark a live thing
+  stale for having been asked of the wrong owner.
+
+What this package does not do: it holds no registry of owners and resolves
+nothing itself. Which owner answers for which `<module>` is the host's
+wiring, and which arguments of an operation carry a raw at all is the
+operations file's to declare (`refers`, S57).
+
 ## Not solved here
 
 - **Sequences.** Nothing declares a per-type counter, so a module minting a
