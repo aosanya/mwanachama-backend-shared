@@ -201,8 +201,12 @@ domain-agnostic module may not carry an agency's words, and
 **A tool's name may be declared.** It is derived from the action by default
 (`x.entry.open` becomes `x_entry_open`), which suits a surface nobody calls
 yet. A module converting a hand-written one has names its callers hardcode,
-so `"tool": "agency_create_goal"` keeps them; two operations publishing one
-name is refused at load. Renaming a tool is a breaking change, and it should
+so `"tool": "agency_create_goal"` keeps them. Two operations declaring one
+name is refused at load, but an operation declaring the name another one
+derives from its action is not: the 2026-10-12 security sweep gave `forget`
+`"tool": "t_note_read"` and `Tools` published two tools named `t_note_read`,
+one deleting. That is S63, open, red in
+`dispatch/tool_name_collision_security_test.go`. Renaming a tool is a breaking change, and it should
 not happen as a side effect of a derivation rule.
 
 **It does not depend on the MCP SDK.** A `Tool` carries `InputSchema` as
