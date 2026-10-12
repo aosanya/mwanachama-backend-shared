@@ -167,6 +167,8 @@ read once and a request arrives forever:
 - more than one whole request, or an overwrite with no whole request to land on
 - a `refers` that is not `<module>.<object>`, or on an argument that binds no
   value of its own — a whole request, an ignored segment or one from the session
+- `"tool": true`, or a `tool` that is neither a name nor `false`; and an
+  operation built in Go that both opts out of the tool surface and names a tool
 
 And at `Dispatch` rather than at load, because they need the manager: a method
 the manager does not have, a method that does not take a context first or
@@ -208,6 +210,18 @@ not happen as a side effect of a derivation rule.
 turn one into an SDK tool live in the process that already imports the SDK
 (`mwanachama-wakala-api`'s `mcp_tools_catalog.go`). A library that only wants
 its acts callable does not acquire a protocol dependency to get them.
+
+**An operation may stay off the tool surface: `"tool": false`.** Some acts
+belong to an operator and never to an agent — `mwanachama-backend-context`'s
+`reindex`, `retract` and `inspect` are the first (its decisions #53, #57, #62
+and #66). Such an operation is still routed by `Dispatch` and still gated by
+the authorizer under its own action; `Tools` skips it, and so does not ask it
+for a `description`. In Go the flag is `Operation.NoTool`, and `"tool"` decodes
+as either a name or `false`: `true` says nothing an omitted `tool` does not, so
+it is refused rather than read as one or the other. Marshalling writes
+`"tool": false` back, so a spec that round-trips keeps the opt-out. An
+operations file that does not set it is unchanged — every file in the
+workspace produced the same tool count before and after (S61).
 
 ### One flat object of arguments
 

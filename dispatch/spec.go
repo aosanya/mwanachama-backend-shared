@@ -62,6 +62,7 @@ type Operation struct {
 	Handled     bool     `json:"handled,omitempty"`
 	Action      string   `json:"action"`
 	Tool        string   `json:"tool,omitempty"`
+	NoTool      bool     `json:"-"`
 	Status      int      `json:"status,omitempty"`
 	Title       string   `json:"title,omitempty"`
 	Description string   `json:"description,omitempty"`
@@ -137,7 +138,9 @@ func (s *Spec) Validate() error {
 			seenAction[op.Action] = name
 		}
 
-		if op.Tool != "" {
+		if op.NoTool && op.Tool != "" {
+			add("operation %q both opts out of the tool surface and publishes the tool %q; it is one or the other", name, op.Tool)
+		} else if op.Tool != "" {
 			if !NamePattern.MatchString(op.Tool) {
 				add("operation %q: tool name %q is not a usable name", name, op.Tool)
 			} else if first, taken := seenTool[op.Tool]; taken {

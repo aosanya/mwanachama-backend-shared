@@ -67,7 +67,7 @@ func Tools(s *Spec, d Deps) ([]Tool, error) {
 	var problems []string
 	for _, name := range sortedKeys(s.Operations) {
 		op := s.Operations[name]
-		if op.Handled {
+		if op.Handled || op.NoTool {
 			continue
 		}
 		if strings.TrimSpace(op.Description) == "" {
@@ -120,10 +120,6 @@ func Tools(s *Spec, d Deps) ([]Tool, error) {
 
 func toolName(action string) string { return strings.ReplaceAll(action, ".", "_") }
 
-// publishedName is the name callers have hardcoded. It is derived from the
-// action unless the operation declares one, because renaming a tool breaks
-// every caller that named it and a module converting a hand-written surface
-// has names it may not change.
 func publishedName(op Operation) string {
 	if op.Tool != "" {
 		return op.Tool
