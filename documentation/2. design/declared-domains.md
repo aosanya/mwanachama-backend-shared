@@ -468,7 +468,8 @@ Three sentinels carry the contract's answers, and an owner wraps them so
 What this package does not do: it holds no registry of owners and resolves
 nothing itself. Which owner answers for which `<module>` is the host's
 wiring, and which arguments of an operation carry a raw at all is the
-operations file's to declare (`refers`, S57).
+operations file's to declare: `refers` on `dispatch.Arg` (S57, 2026-10-12), enumerated by
+`Spec.References()` — see [dispatcher.md](dispatcher.md#binding).
 
 ## Not solved here
 

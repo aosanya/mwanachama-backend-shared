@@ -12,12 +12,12 @@ so a real Postgres is never reached by default.
 ## What the suite covers
 
 Test functions per package (`go test ./<pkg>/ -list '.*'`), counted
-2026-10-03 and re-counted for `dispatch` and `spec` on 2026-10-09 — S54's
-`querykey_fallback_test.go` and S55's `default_literal_security_test.go`:
+2026-10-03 and re-counted for `dispatch` and `spec` on 2026-10-09 (S54's
+`querykey_fallback_test.go` and S55's `default_literal_security_test.go`) and for `dispatch` on 2026-10-12 (S57's `refers_test.go`):
 
 | Package | Tests | What it holds |
 |---------|-------|---------------|
-| `dispatch` | 77 | the operations engine — binding, routes, MCP tools and the authorizer gate |
+| `dispatch` | 84 | the operations engine — binding, routes, MCP tools and the authorizer gate |
 | `spec` | 56 | loading, validation and blueprint merge of a declared domain; the migrator |
 | `entitygraph` | 23 | the entity-graph contract |
 | `specstore` | 31 | the codec and query helpers every declared module stores through |

@@ -81,6 +81,7 @@ serve it*. A public action skips the authorizer because it never had one.
 | `{from: path, as: x, ignored: true}` | an address segment the call does not take |
 | `{from: caller, as: x}` | the authenticated caller, supplied by the mount |
 | `{from: caller, as: x, into: Field}` | the caller overwrites a field on the whole parameter |
+| `{from: path\|query\|body, as: x, refers: module.object}` | a value that names a thing, and which module's object it is |
 
 `whole` exists because managers take domain structs — `UpsertEntry(ctx, Entry)`,
 `ListEntries(ctx, ListFilter)` — not loose scalars. A whole body decodes with
@@ -131,6 +132,26 @@ overwrite loop skips it, and `flatten` already treats every overwritten field
 as not-a-property — so the field is unreachable from MCP as well as from HTTP.
 Added 2026-09-27 for `mwanachama-backend-permissions`' PM5.
 
+**`refers` says which arguments point at a thing, and only a marked argument
+does.** An operations file names every argument, but `draft_id` and
+`instance_id` look like references and are scopes, while `role_id` is a
+reference; guessing from the `_id` suffix is the convention that fails
+quietly. `{from: path, as: role_id, refers: agency.role}` declares it, naming
+the `<module>.<object>` whose `identity.Owner` can turn the value into a raw
+and back (§9 of the developer repo's `architecture-spec-driven-modules.md`,
+S56). `Spec.References()` lists every marked argument — operation, name,
+source, whether repeated, and what it refers to — so a consumer that must
+resolve references (the first is `mwanachama-backend-context`'s co-access
+recorder) enumerates them from the declaration rather than from a naming
+rule. The mark changes nothing else: binding, the route's answer and the
+tool's schema are byte-identical with and without it, pinned by
+`TestAMarkedArgumentBindsAndToolsExactlyAsAnUnmarkedOne`, and an unmarked
+argument is never a reference. It is refused where it could not mean
+anything: on a whole request (no single value), an ignored segment (nothing
+bound) and a session argument (the caller is the mount's fact, not a value
+the request names — a module that wants the caller as a key knows it is the
+caller). Added 2026-10-12 as S57.
+
 ## What the spec is refused for
 
 All of these fail at load rather than at the first request, because a spec is
@@ -144,6 +165,8 @@ read once and a request arrives forever:
   does not exist
 - an operation rendering nothing, or mixing a whole-body return with named ones
 - more than one whole request, or an overwrite with no whole request to land on
+- a `refers` that is not `<module>.<object>`, or on an argument that binds no
+  value of its own — a whole request, an ignored segment or one from the session
 
 And at `Dispatch` rather than at load, because they need the manager: a method
 the manager does not have, a method that does not take a context first or

@@ -129,6 +129,10 @@ sentinels an owner wraps: `ErrInvalidRaw`, `ErrNotFound` (the confirmed miss)
 and `ErrNotOwned` (another module's raw, which is not a miss). It imports
 nothing from `spec`. The owners implement it on their own boards; see
 [declared-domains.md](documentation/2.%20design/declared-domains.md#a-thing-has-one-identity).
+Which arguments carry such a raw is the operations file's to say:
+`dispatch.Arg.Refers` (S57, 2026-10-12) marks one as `<module>.<object>`,
+`Spec.References()` enumerates the marked ones, and an unmarked argument is
+never a reference — see [dispatcher.md](documentation/2.%20design/dispatcher.md#binding).
 
 ## Code comments
 
