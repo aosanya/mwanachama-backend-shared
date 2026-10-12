@@ -13,11 +13,11 @@ so a real Postgres is never reached by default.
 
 Test functions per package (`go test ./<pkg>/ -list '.*'`), counted
 2026-10-03 and re-counted for `dispatch` and `spec` on 2026-10-09 (S54's
-`querykey_fallback_test.go` and S55's `default_literal_security_test.go`) and for `dispatch` on 2026-10-12 (S57's `refers_test.go`):
+`querykey_fallback_test.go` and S55's `default_literal_security_test.go`) and for `dispatch` on 2026-10-12 (S57's `refers_test.go` and the security sweep's `refers_alphabet_security_test.go`):
 
 | Package | Tests | What it holds |
 |---------|-------|---------------|
-| `dispatch` | 84 | the operations engine — binding, routes, MCP tools and the authorizer gate |
+| `dispatch` | 86 | the operations engine — binding, routes, MCP tools and the authorizer gate |
 | `spec` | 56 | loading, validation and blueprint merge of a declared domain; the migrator |
 | `entitygraph` | 23 | the entity-graph contract |
 | `specstore` | 31 | the codec and query helpers every declared module stores through |
@@ -100,3 +100,12 @@ The mount segment (S26) is pinned green by
 underscore, capital, hyphen, space, `;` or `.` in `mount` is refused by name,
 and a mount that pushes a name past 63 bytes is refused (mutation-checked by
 dropping the `SegmentPattern` check on the mount).
+
+The `refers` mark (S57) is pinned green by
+`dispatch/refers_alphabet_security_test.go` (security sweep, 2026-10-12): a
+mark carrying a newline, carriage return, line separator, NUL, zero-width
+space, right-to-left override, byte order mark, soft hyphen, a Cyrillic or
+accented lookalike, a leading or trailing space or a doubled dot is refused at
+load, and a case-variant `REFERS`/`Refers` key is held to the same pattern —
+the contrast with S60, where `identity.Parse` accepts the same characters
+(mutation-checked by loosening `RefersPattern` to `^\S+\.\S+`: 14 red).
