@@ -77,6 +77,13 @@ repos carries one, and none is built from caller data.
   the security sweep's, left failing on purpose until `identity.Parse`
   refuses a bidi override, a zero-width character or a line separator in the
   identity; today each is accepted as a distinct raw that renders as another.
+- `dispatch/tool_name_collision_security_test.go`'s
+  `TestS63_OpenHole_ExplicitToolNameTakesAnotherOperationsDerivedName` (S63)
+  — the security sweep's, left failing on purpose until `Validate`'s
+  `seenTool` set is built from every operation's *published* name,
+  explicit or derived, not only an explicit one; today an operation
+  giving itself an explicit `tool` name equal to another operation's
+  derived name is accepted and both publish under it.
 
 `spec/mount_collision_security_test.go`'s
 `TestS28_OpenHole_MountNameSpellsTheDefaultMountsTable` (S28) is no longer
