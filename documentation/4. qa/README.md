@@ -13,11 +13,11 @@ so a real Postgres is never reached by default.
 
 Test functions per package (`go test ./<pkg>/ -list '.*'`), counted
 2026-10-03 and re-counted for `dispatch` and `spec` on 2026-10-09 (S54's
-`querykey_fallback_test.go` and S55's `default_literal_security_test.go`) and for `dispatch` on 2026-10-12 (S57's `refers_test.go` and the security sweep's `refers_alphabet_security_test.go`):
+`querykey_fallback_test.go` and S55's `default_literal_security_test.go`) and for `dispatch` on 2026-10-12 (S57's `refers_test.go`, S58's `conversation_test.go` and the security sweep's `refers_alphabet_security_test.go` and `conversation_alphabet_security_test.go`):
 
 | Package | Tests | What it holds |
 |---------|-------|---------------|
-| `dispatch` | 86 | the operations engine — binding, routes, MCP tools and the authorizer gate |
+| `dispatch` | 95 | the operations engine — binding, routes, MCP tools and the authorizer gate |
 | `spec` | 56 | loading, validation and blueprint merge of a declared domain; the migrator |
 | `entitygraph` | 23 | the entity-graph contract |
 | `specstore` | 31 | the codec and query helpers every declared module stores through |
@@ -109,3 +109,19 @@ accented lookalike, a leading or trailing space or a doubled dot is refused at
 load, and a case-variant `REFERS`/`Refers` key is held to the same pattern —
 the contrast with S60, where `identity.Parse` accepts the same characters
 (mutation-checked by loosening `RefersPattern` to `^\S+\.\S+`: 14 red).
+
+The conversation id (S58) is pinned green by
+`dispatch/conversation_alphabet_security_test.go` (security sweep,
+2026-10-12): an `X-Conversation-Id` header or a `_meta.conversation_id`
+carrying a newline, carriage return, line separator, NUL, no-break or
+zero-width space, right-to-left override, byte order mark, soft hyphen, a
+fullwidth or Cyrillic lookalike, a comma-joined list, a leading `.`/`:`/`_` or
+129 characters is refused before the handler runs and the refusal never
+repeats the value; a case-variant `_meta` key or an empty or null value
+leaves the host's conversation standing; and two spellings of the header on
+the wire (`x-conversation-id` and `X-CONVERSATION-ID`) are one header sent
+twice, a 400 (mutation-checked by loosening `ConversationPattern` to any
+character: 4 red; by allowing a repeated header: 2 red). The id is asserted by
+the caller and bound to nobody — nothing in the six reads `ConversationOf`
+yet, so whichever module first records against it owns scoping it to the
+caller.
