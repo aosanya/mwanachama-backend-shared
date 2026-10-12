@@ -107,6 +107,13 @@ physical name's prefix tells you which registry to consult (`spec.InstanceOf`).
 lookup — so losing it costs legibility, not correctness. These are real tables,
 so exclude `%_spec_table_names` from anything that counts tables.
 
+A domain spec may **attach another module** to one of its own objects
+(2026-10-12): `"attach": [{"module": "ratings", "items": "catalog.entry"}]`,
+`items` spelled `<module>.<role>` like a `refers` mark and held to a role
+this spec claims. `spec` validates it; the host mounts the attached module.
+A spec without it is unchanged — see
+[declared-domains.md](documentation/2.%20design/declared-domains.md#a-domain-attaches-another-module).
+
 `mwanachama-backend-catalog` is the first consumer and
 `mwanachama-backend-agency` the second (AGD-007 there). The org-wide strategy
 this serves is `developer/documentation/2. design/architecture-spec-driven-modules.md`;

@@ -524,6 +524,60 @@ host reports, to which reactors, is the host's wiring — for
 `mwanachama-wakala-api` that is context's TR13 — and what a reactor does with
 the objects (read them from the owner, emit facts, re-score) is its own.
 
+## A domain attaches another module
+
+A domain spec may say that **another module works on one of its objects**,
+and the host mounts that module beside it. Ratings attached to a catalog is
+the first case (ratings #23): every entry of the catalog is something a
+caller can rate, and the catalog never learns that ratings exists.
+`spec.Spec.Attach` (2026-10-12) carries it:
+
+```json
+{
+  "module": "catalog",
+  "domain": "agency",
+  "instance": "wakala",
+  "objects": [ … ],
+  "attach": [
+    { "module": "ratings", "items": "catalog.entry" }
+  ]
+}
+```
+
+- **`module`** is the module attached, in `SegmentPattern` — the same
+  alphabet as a raw's first segment, so it names the module the way a key
+  does.
+- **`items`** is the object of *this* spec whose keys the attached module
+  works on, spelled `<module>.<role>` — `AttachTargetPattern`, pinned equal
+  to `dispatch.RefersPattern` by test, so an attachment and a `refers` mark
+  name another module's object the same way. Its module half must be this
+  spec's own module (an attachment points at this domain's objects, never
+  a third module's), and its role half must be a role an object here
+  claims. **A role, not the object's name**: the name is the domain's word
+  (`agency`) and the role is the module's (`entry`), and the attached
+  module's keys are identified through the owner's `StableIdentity`, which
+  speaks the module's vocabulary.
+- That is all it carries. Where the attached module's tables land, what its
+  domain calls them and how it is tuned stay in **that** module's own spec
+  and settings; the attachment says only *what* and *on which objects*.
+  A module cannot attach itself, a pair cannot be attached twice, and an
+  unknown field in an attachment is refused like anywhere else in a spec.
+- **The spec engine reads and validates it; the host acts on it.** `Validate`
+  holds the shape; `s.Attached(module)` lists the attachments naming one
+  module and `Attachment.ItemsRole()` gives the role to resolve with
+  `ByRole`. Mounting — which spec the attached module loads, at which path,
+  behind which gate — is the host's, exactly as every other mount is
+  (wakala-api's decision #22). For ratings that is its RT11.
+- **Additive.** A spec with no `attach` decodes, validates, migrates and
+  marshals exactly as before (`attach` is `omitempty`), and a blueprint
+  cannot carry one: attaching is a deployment's choice, not a module's.
+
+Before this, no declaration anywhere said "module X works on object Y of
+module Z" — every such placement (taskmanager per agency, catalog mounted
+twice) was decided in the host's Go code. Reach for `attach` when the
+placement follows from the domain's own data; keep a host-code mount when it
+follows from the host's own structure, as taskmanager-per-Instance does.
+
 ## Not solved here
 
 - **Sequences.** Nothing declares a per-type counter, so a module minting a
