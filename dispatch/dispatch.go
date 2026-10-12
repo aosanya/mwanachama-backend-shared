@@ -157,13 +157,20 @@ func handlerFor(op Operation, method reflect.Value, table map[error]int, fallbac
 			}
 		}
 
+		ctx, err := conversationFromHeader(r)
+		if err != nil {
+			httpwire.WriteErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		r = r.WithContext(ctx)
+
 		args, err := bind(op, method.Type(), r, caller, device)
 		if err != nil {
 			httpwire.WriteErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		results := method.Call(append([]reflect.Value{reflect.ValueOf(r.Context())}, args...))
+		results := method.Call(append([]reflect.Value{reflect.ValueOf(ctx)}, args...))
 		if last := results[len(results)-1]; !last.IsNil() {
 			callErr := last.Interface().(error)
 			code := httpwire.StatusFor(callErr, table, fallback)

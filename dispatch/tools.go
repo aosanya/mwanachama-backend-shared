@@ -26,6 +26,7 @@ type Tool struct {
 	Action      string
 	InputSchema json.RawMessage
 	Invoke      func(context.Context, json.RawMessage) (any, error)
+	Handle      func(context.Context, Request) (any, error)
 }
 
 type slot struct {
@@ -99,13 +100,15 @@ func Tools(s *Spec, d Deps) ([]Tool, error) {
 			problems = append(problems, fmt.Sprintf("operation %q: %v", name, err))
 			continue
 		}
+		handle := invokerFor(op, plan, props, method, table, fallback, d.Authorize, d.Caller, d.Device)
 		out = append(out, Tool{
 			Name:        publishedName(op),
 			Title:       op.Title,
 			Description: op.Description,
 			Action:      op.Action,
 			InputSchema: schema,
-			Invoke:      invokerFor(op, plan, props, method, table, fallback, d.Authorize, d.Caller, d.Device),
+			Invoke:      argumentsOnly(handle),
+			Handle:      handle,
 		})
 	}
 	if len(problems) > 0 {
@@ -128,7 +131,13 @@ func publishedName(op Operation) string {
 	return toolName(op.Action)
 }
 
-func invokerFor(op Operation, plan []slot, props []property, method reflect.Value, table map[error]int, fallback int, authorize Authorizer, caller, device Caller) func(context.Context, json.RawMessage) (any, error) {
+func argumentsOnly(handle func(context.Context, Request) (any, error)) func(context.Context, json.RawMessage) (any, error) {
+	return func(ctx context.Context, raw json.RawMessage) (any, error) {
+		return handle(ctx, Request{Arguments: raw})
+	}
+}
+
+func invokerFor(op Operation, plan []slot, props []property, method reflect.Value, table map[error]int, fallback int, authorize Authorizer, caller, device Caller) func(context.Context, Request) (any, error) {
 	known := map[string]bool{}
 	required := map[string]bool{}
 	for _, p := range props {
@@ -136,14 +145,19 @@ func invokerFor(op Operation, plan []slot, props []property, method reflect.Valu
 		required[p.key] = p.required
 	}
 
-	return func(ctx context.Context, raw json.RawMessage) (any, error) {
+	return func(ctx context.Context, req Request) (any, error) {
 		if authorize != nil {
 			if err := authorize(ctx, op.Action); err != nil {
 				return nil, ErrForbidden
 			}
 		}
 
-		in, err := arguments(raw)
+		ctx, err := conversationFromMeta(ctx, req.Meta)
+		if err != nil {
+			return nil, err
+		}
+
+		in, err := arguments(req.Arguments)
 		if err != nil {
 			return nil, err
 		}

@@ -133,6 +133,12 @@ Which arguments carry such a raw is the operations file's to say:
 `dispatch.Arg.Refers` (S57, 2026-10-12) marks one as `<module>.<object>`,
 `Spec.References()` enumerates the marked ones, and an unmarked argument is
 never a reference — see [dispatcher.md](documentation/2.%20design/dispatcher.md#binding).
+The conversation a call belongs to is a session fact, never an argument
+(S58, 2026-10-12): `dispatch` reads it from the `X-Conversation-Id` header on
+REST and from `_meta.conversation_id` on MCP (`Tool.Handle` takes a
+`Request{Arguments, Meta}`; `Invoke` is unchanged), holds it to
+`ConversationPattern`, and answers it from `ConversationOf(ctx)` — see
+[dispatcher.md](documentation/2.%20design/dispatcher.md#the-conversation-rides-beside-the-call).
 
 ## Code comments
 

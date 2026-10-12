@@ -253,3 +253,59 @@ A sentinel the spec maps to a status reaches the caller with its own text; one
 it does not map is `internal error`, exactly as the route table renders a 500.
 The two surfaces cannot disagree about what a caller is told, because they read
 one table.
+
+## The conversation rides beside the call
+
+A conversation — which chat session a call belongs to — is a session fact
+like the caller and the handset, and §9 of the standard gives it the same
+treatment: it is never an argument a model could forget or invent, so no
+operations file declares it and no tool schema offers it. It arrives in the
+protocol instead, and `dispatch` reads it on both surfaces (S58, 2026-10-12):
+
+- **REST**: one request header, `dispatch.ConversationHeader`
+  (`X-Conversation-Id`). The header is read once per request; a request that
+  sends it twice is a 400, so there is never a question of which one won.
+- **MCP**: `_meta` on the `tools/call`, under `dispatch.ConversationMetaKey`
+  (`conversation_id`). `Tool.Handle(ctx, Request{Arguments, Meta})` is the
+  entry point that sees `_meta`; the host's adapter passes the SDK's
+  `req.Params.Meta` straight in, since the SDK's `Meta` is a `map[string]any`.
+  `Tool.Invoke(ctx, arguments)` is unchanged and is `Handle` with no `_meta`,
+  so a host that has not wired the meta yet behaves as it did.
+
+Either way the id lands on the context: `dispatch.ConversationOf(ctx)` answers
+it from inside the manager method, and `dispatch.WithConversation(ctx, id)`
+is how a host or a test puts one there itself. A call that carries none
+answers `""` — the honest "no conversation", which a module records nothing
+against (context's #26). The call's own fact outranks the host's: `_meta` or
+the header replaces whatever a host put on the context, and a call carrying
+neither leaves the host's value standing.
+
+**It is never read from the query, the path or the body.** A
+`?conversation_id=` on the address or a `conversation_id`/`session_id` field
+in a body or in a tool's arguments is not a conversation: on REST it is an
+unknown body key or a query nobody binds, on MCP it is refused as an argument
+the tool does not take. Pinned by `TestAConversationIsNeverReadFromTheQueryOrTheBody`
+and `TestAToolReadsTheConversationFromMetaAndNeverFromAnArgument`.
+
+**It has a shape.** `dispatch.ConversationPattern` holds it to one to 128
+characters of letters, digits, `.`, `_`, `:` and `-`, starting with a letter or
+digit — a uuid, which is what `mwanachama-wakala-studio` mints, fits — and a
+value off that shape is a 400 on REST and `ErrInvalidConversation` on MCP,
+before the manager is called. The id becomes a document key in the module
+that records against it, and the identity sweep (S60) showed what an
+unbounded string lets through: a bidi override, a zero-width character or a
+line separator inside a value that is later listed one per line. A tighter
+alphabet is widenable; a wider one is not narrowable once stored.
+
+**The gate still runs first.** The header and `_meta` are judged after the
+authorizer has passed the action, so a refused caller is answered 403
+whatever it sent, and a refusal never doubles as an oracle for what the
+module accepts — the same ordering the arguments already have. Pinned by
+`TestTheGateRunsBeforeTheConversationIsRead`.
+
+What this does not do: it records nothing. Which module wants the id, and what
+it does with it, is that module's (`mwanachama-backend-context` reads it in
+its `*Partition` view to stamp an agent's assertion with its session, and its
+host's co-access recorder reads it to observe what a call named). The studio
+sending it — `_meta` on each `callTool`, the header on each `fetch` — is
+context's TR11.
