@@ -139,6 +139,12 @@ REST and from `_meta.conversation_id` on MCP (`Tool.Handle` takes a
 `Request{Arguments, Meta}`; `Invoke` is unchanged), holds it to
 `ConversationPattern`, and answers it from `ConversationOf(ctx)` — see
 [dispatcher.md](documentation/2.%20design/dispatcher.md#the-conversation-rides-beside-the-call).
+A host tells a reacting module what it wrote with `identity.Written`
+(S59, 2026-10-12): `(partition, owner, objects)`, each object the
+`(object, id)` pair `StableIdentity` takes, handed to an `identity.Reactor`
+in one in-process call after the write. A report naming no objects is
+refused, never read as the whole owner — see
+[declared-domains.md](documentation/2.%20design/declared-domains.md#a-host-says-what-it-wrote).
 
 ## Code comments
 

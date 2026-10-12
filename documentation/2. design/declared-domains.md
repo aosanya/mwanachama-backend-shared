@@ -471,6 +471,59 @@ wiring, and which arguments of an operation carry a raw at all is the
 operations file's to declare: `refers` on `dispatch.Arg` (S57, 2026-10-12), enumerated by
 `Spec.References()` — see [dispatcher.md](dispatcher.md#binding).
 
+### A host says what it wrote
+
+A module that reacts to another module's writes cannot watch them; the host
+ran the import, the publish, the fork, and knows. `identity.Written` (S59,
+2026-10-12) is the one message it sends after such a write, and
+`identity.Reactor` is the seam a reacting module accepts it on:
+
+```go
+type Written struct {
+	Partition string          `json:"partition"`
+	Owner     string          `json:"owner"`
+	Objects   []WrittenObject `json:"objects"`
+}
+type WrittenObject struct {
+	Object string `json:"object"`
+	ID     string `json:"id"`
+}
+type Reactor interface {
+	Wrote(ctx context.Context, w Written) error
+}
+```
+
+It is one in-process call after the write, not a bus or a queue: the host
+decides when (and whether to batch), the module touches exactly the objects
+named. Four choices are worth knowing:
+
+- **An object is `(object, id)`, the pair `StableIdentity` takes**, not a
+  raw. The host holds row ids at the moment it writes; a reacting module that
+  wants the constant name asks the owner, so the identity rule stays with the
+  owner. `WrittenObject.Refers(owner)` spells the pair as the
+  `<module>.<object>` a `refers` mark names, and `ObjectPattern` is pinned to
+  the object half of `dispatch.RefersPattern` by test, so a reported object
+  and a marked argument always name things the same way.
+- **There is no whole-owner form.** A report with no objects is refused
+  (`ErrInvalidWritten`) rather than read as "everything": an empty list
+  reaching a reactor by mistake would otherwise sweep a partition, which is
+  exactly the load the rule exists to prevent. A new Instance or an import,
+  where "what changed" is the whole owner, names every object it created —
+  context's #42 says that needs no separate rule, and this keeps it so.
+- **One owner per report.** An event that touches two owners sends two, the
+  way context's #32 scopes a reindex to the owner an event changed.
+- **`Check` holds the shape**: the partition and the owner to
+  `SegmentPattern` (a partition is the tenant segment a raw's instance
+  names), each object to `ObjectPattern`, each id to the same rule a raw's
+  identity follows — non-empty UTF-8, no control character, no edge
+  whitespace, slashes allowed. A reactor calls it first; nothing here
+  resolves or reads the objects.
+
+What it does not do: it names no reacting module and no event. Which events a
+host reports, to which reactors, is the host's wiring — for
+`mwanachama-wakala-api` that is context's TR13 — and what a reactor does with
+the objects (read them from the owner, emit facts, re-score) is its own.
+
 ## Not solved here
 
 - **Sequences.** Nothing declares a per-type counter, so a module minting a
