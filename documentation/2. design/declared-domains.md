@@ -661,12 +661,23 @@ no module writes them again.
   answering a valid value, and the layer reported says where it came from.
   Reset to definition is deleting the override.
 
-**Not built yet.** Storage of the two per-agency layers — definition values
-and overrides with who and when, beside a module's own tables — is not
-here: this slice is the declaration, the check and the resolution as pure
-functions over values a caller holds. Whether the engine provisions a
-declared table per instance for them or each module keeps its own is the
-next step of S64, and the override log decision 281 asks for belongs with it.
+- **An owner's change is one step that yields its own log entry.**
+  `SetOverride(settings, overrides, name, value, by, at)` refuses an
+  undeclared name, a value off its shape (so an owner can never store what
+  `Resolve` would pass over) and a change missing who or when
+  (`ErrSettingChangeUnattributed`); it answers a new override map — the
+  caller's is never edited — and a `SettingChange` (`name`, `from`, `to`,
+  `by`, `at`). `ClearOverride` is reset to definition: it answers the map
+  without the override and a change marked `cleared`, or `false` when there
+  was nothing to clear. The `SettingChange` is the row decision 281's
+  override log appends, whatever stores it.
+
+**Not built yet.** Storage of the two per-agency layers and of the change
+log — beside a module's own tables — is not here: the declaration, the
+check, the resolution and the change step are pure functions over values a
+caller holds. Whether the engine provisions a declared table per instance
+for them or each module keeps its own is the next step of S64 and waits on
+the owner.
 
 ## Not solved here
 
