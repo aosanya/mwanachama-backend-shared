@@ -9,8 +9,9 @@ import (
 )
 
 type Blueprint struct {
-	Module  string   `json:"module"`
-	Objects []Object `json:"objects"`
+	Module   string    `json:"module"`
+	Objects  []Object  `json:"objects"`
+	Settings []Setting `json:"settings,omitempty"`
 }
 
 func ParseBlueprint(raw []byte) (*Blueprint, error) {
@@ -72,6 +73,8 @@ func (b *Blueprint) Validate() error {
 		named.Name = o.Role
 		problems = append(problems, named.validate()...)
 	}
+
+	problems = append(problems, settingsProblems(b.Settings)...)
 
 	return asError("blueprint", problems)
 }
@@ -140,6 +143,7 @@ func (b *Blueprint) Apply(s *Spec) error {
 		problems = append(problems, errs...)
 		s.Objects[i] = merged
 	}
+	s.Settings = append([]Setting(nil), b.Settings...)
 
 	return asError("spec", problems)
 }

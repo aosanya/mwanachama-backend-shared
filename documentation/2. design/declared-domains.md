@@ -578,6 +578,54 @@ twice) was decided in the host's Go code. Reach for `attach` when the
 placement follows from the domain's own data; keep a host-code mount when it
 follows from the host's own structure, as taskmanager-per-Instance does.
 
+## A module declares its settings
+
+A module's blueprint may name the settings it acts on (S64, member app
+decisions 280 and 281, 2026-10-22). Each module stores and checks its own
+settings; the engine supplies the declaration, the check and the layering, so
+no module writes them again.
+
+```json
+"settings": [
+  {"name": "approval", "type": "bool", "description": "Whether an answer needs approval.", "default": false},
+  {"name": "language", "type": "enum", "description": "Language forms are written in.",
+   "values": ["en", "sw"], "default": "en"}
+]
+```
+
+- **The blueprint owns them, never the domain spec.** `Blueprint.Settings` is
+  validated in `Blueprint.Validate`; `Apply` copies it onto the loaded
+  `Spec.Settings`. A domain spec carrying a `settings` key is refused as an
+  unknown field, because a setting's value belongs to the agency's
+  definition and its owner, not to the file that names tables.
+- **A setting is held to its shape at load.** Its name is in `NamePattern`,
+  its type is one of `string`, `text`, `int`, `float`, `bool`, `enum` or
+  `json`, its description is not empty, an enum carries `values` and nothing
+  else does, and it **must carry a default that fits the shape**. The
+  default is the module's own layer, the one every other layer falls back
+  to, so a setting with none would resolve to nothing.
+- **`CheckSettings(settings, values)`** (and `Spec.CheckSettings`) answers
+  every problem with a set of values, sorted by name: a value off its shape,
+  outside an enum's values, a fraction for an `int`, or a name the module
+  does not declare. Publishing and an owner's change both go through it.
+- **Three layers, one answer.** `Resolve(settings, definition, overrides,
+  name)` answers an `Effective`: the value and the `Layer` that set it —
+  `override` (the owner's live change, carrying `By` and `At`), else
+  `definition` (the value the agency definition handed the module on
+  publish), else `module` (the declared default). `ResolveAll` answers every
+  declared setting in declared order.
+- **A layer whose value no longer fits is passed over, not served.** A
+  module that narrows an enum after an owner chose a value it dropped keeps
+  answering a valid value, and the layer reported says where it came from.
+  Reset to definition is deleting the override.
+
+**Not built yet.** Storage of the two per-agency layers — definition values
+and overrides with who and when, beside a module's own tables — is not
+here: this slice is the declaration, the check and the resolution as pure
+functions over values a caller holds. Whether the engine provisions a
+declared table per instance for them or each module keeps its own is the
+next step of S64, and the override log decision 281 asks for belongs with it.
+
 ## Not solved here
 
 - **Sequences.** Nothing declares a per-type counter, so a module minting a

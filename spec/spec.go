@@ -206,6 +206,8 @@ type Spec struct {
 	Objects []Object `json:"objects"`
 
 	Attach []Attachment `json:"attach,omitempty"`
+
+	Settings []Setting `json:"-"`
 }
 
 func (s *Spec) MountName() string {
