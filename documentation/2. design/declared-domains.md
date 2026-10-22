@@ -80,8 +80,8 @@ category. That is comm's CM26 and is open.
 
 ## What a field may say
 
-Types are `string`, `text`, `int`, `bool`, `json`, `timestamp`, `enum` and
-`bytes`. The set is closed: a type with no arm fails when the spec loads
+Types are `string`, `text`, `int`, `float`, `bool`, `json`, `timestamp`,
+`enum`, `bytes` and `geometry`. The set is closed: a type with no arm fails when the spec loads
 rather than producing a column nobody meant. A timestamp is text, so every
 dialect compares it the same way; `json` is `jsonb` on Postgres and text on
 SQLite, which is what lets the unit tests run on SQLite while document
@@ -119,6 +119,48 @@ and stores whatever it is handed, so a `bytes` field wrongly emitted as
 `text` still round-trips there — the same blindness that hides an adopted
 `timestamptz`. `specstore/bytes_test.go` therefore asserts on the generated
 DDL as well as on the round trip.
+
+### Carrying a place
+
+`geometry` holds a place as a GeoJSON geometry, and only one of three kinds:
+`Point`, `Polygon` or `MultiPolygon` (member app decisions 302 and 306, row
+S65). It is stored exactly as a `json` document is — `jsonb` on Postgres,
+text on SQLite — so a path index can read into it like any other document.
+What differs is that **it is checked on every write**: `specstore` parses
+the value with `geo.Parse` before the row is written and refuses anything
+else, so a line string, a ring that does not close, a ring of fewer than
+four positions, a longitude outside -180..180 or a latitude outside -90..90
+never reaches the table. A third coordinate (a height) is accepted and
+dropped, and foreign members such as `bbox` are ignored.
+
+It may be carried as a `geo.Geometry`, which reads back already parsed, or
+as a `string` holding the GeoJSON as a client sent it. An empty string or
+the zero `geo.Geometry` is SQL NULL, and a nullable field is carried by a
+`*geo.Geometry` like any other. Three declarations are refused by name: a
+`default` (no domain has one place every row starts at), a `matches`
+pattern (the value is checked as GeoJSON, not against a pattern) and
+`primary` (a shape is not an identity).
+
+`geo/` is the small package of pure functions over those three kinds, with
+no storage and no import of `spec`:
+
+- `Contains(g, p)` is point in polygon by ray casting. A point on an edge
+  or a vertex is inside, and a point inside a hole is outside (on the hole's
+  edge it is still inside). For a `Point` it is equality.
+- `Distance(a, b)` is the great-circle distance in metres (haversine, mean
+  Earth radius 6 371 008.8 m), good to well under a percent at the scale of
+  a town or a county.
+- `BoundingBox(g)` is the smallest longitude/latitude box holding the
+  outer rings. It does not handle a shape crossing the antimeridian, which
+  no place the member app serves does.
+- `RoundForPublic(p)` rounds both coordinates to three decimal places, a
+  cell about 111 m tall and no wider, so a point read back on a public
+  surface sits within about 80 m of the true one and every home in the
+  same cell reads the same. A module applies it on a public read; the
+  stored value is never rounded.
+
+Positions are `[longitude, latitude]`, GeoJSON's order, never the other way
+round.
 
 ### Carrying a timestamp
 

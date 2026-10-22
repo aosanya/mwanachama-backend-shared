@@ -171,6 +171,17 @@ func (o Object) validate() []string {
 		if f.Primary && f.Type == TypeJSON {
 			add("object %q: field %q cannot be both a document and a key", o.Name, f.Name)
 		}
+		if f.Type == TypeGeometry {
+			if f.Primary {
+				add("object %q: field %q cannot be both a place and a key", o.Name, f.Name)
+			}
+			if f.Default != "" {
+				add("object %q: field %q holds a place and cannot carry the default %q", o.Name, f.Name, f.Default)
+			}
+			if f.Matches != "" {
+				add("object %q: field %q holds a place, which is checked as GeoJSON, so the pattern %q could never be applied to it", o.Name, f.Name, f.Matches)
+			}
+		}
 		if f.Type == TypeBytes {
 			if f.Default != "" {
 				add("object %q: field %q holds opaque bytes and cannot carry the default %q", o.Name, f.Name, f.Default)

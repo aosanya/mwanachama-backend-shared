@@ -81,12 +81,14 @@ const (
 	TypeEnum FieldType = "enum"
 
 	TypeBytes FieldType = "bytes"
+
+	TypeGeometry FieldType = "geometry"
 )
 
 var fieldTypes = map[FieldType]bool{
 	TypeString: true, TypeText: true, TypeInt: true, TypeFloat: true,
 	TypeBool: true, TypeJSON: true, TypeTimestamp: true, TypeEnum: true,
-	TypeBytes: true,
+	TypeBytes: true, TypeGeometry: true,
 }
 
 // Field is one column on one object.

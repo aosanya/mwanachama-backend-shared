@@ -83,7 +83,7 @@ func (f Field) columnType(dialect string) string {
 			return "bytea"
 		}
 		return "blob"
-	case TypeJSON:
+	case TypeJSON, TypeGeometry:
 		// The split that lets the unit tests run on SQLite while the real
 		// document queries run on jsonb. SQLite has JSON1, so json_extract
 		// works over text there.
@@ -112,7 +112,7 @@ func (f Field) defaultClause() string {
 	// defaults below are for optional columns only. A nullable column is
 	// excluded for the opposite reason: a default is what would stop NULL
 	// ever being stored, which is the whole point of declaring it nullable.
-	case f.Required, f.Primary, f.Nullable, f.Type == TypeJSON:
+	case f.Required, f.Primary, f.Nullable, f.Type == TypeJSON, f.Type == TypeGeometry:
 		return ""
 	case f.Type == TypeInt, f.Type == TypeFloat:
 		return "default 0"

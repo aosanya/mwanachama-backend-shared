@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/aosanya/mwanachama-backend-shared/geo"
 	"github.com/aosanya/mwanachama-backend-shared/spec"
 )
 
@@ -274,6 +275,8 @@ func cell(f spec.Field, fv reflect.Value) (any, error) {
 		return document(fv)
 	case spec.TypeBytes:
 		return opaque(fv)
+	case spec.TypeGeometry:
+		return place(fv)
 	default:
 		return text(f, fv)
 	}
@@ -323,6 +326,20 @@ func document(fv reflect.Value) (any, error) {
 		return nil, err
 	}
 	return string(raw), nil
+}
+
+func place(fv reflect.Value) (any, error) {
+	if g, ok := fv.Interface().(geo.Geometry); ok && g.Kind == "" {
+		return nil, nil
+	}
+	doc, err := document(fv)
+	if err != nil || doc == nil {
+		return doc, err
+	}
+	if err := geo.Validate([]byte(doc.(string))); err != nil {
+		return nil, err
+	}
+	return doc, nil
 }
 
 func Decode(o spec.Object, row map[string]any, out any) error {
