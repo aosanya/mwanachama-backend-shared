@@ -70,6 +70,48 @@ reading a daily schedule years on does not walk every day since. A rule
 that can never match (February 30) gives up after 4000 empty periods and
 answers nothing.
 
+## The wire shape
+
+S67, for member app decision 367: forms, tasks and messages send the same
+schedule body, so the studio's one Repeat picker serves all three.
+
+```json
+{"start": "2026-11-02T09:00:00+03:00", "end": "2027-06-30T00:00:00+03:00",
+ "zone": "Africa/Nairobi", "rule": "FREQ=MONTHLY;BYDAY=1MO", "open_days": 7}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `start` | RFC 3339 instant, required; its wall-clock time is every occurrence's |
+| `end` | RFC 3339 instant, optional for a rule, **required for `dates`** (decision 362) |
+| `zone` | IANA zone name, required |
+| `rule` | the RRULE subset above; exactly one of `rule` and `dates` |
+| `dates` | `YYYY-MM-DD` dates |
+| `open_days` | optional; how many days each period stays open (decision 359) |
+
+`Wire` is the struct and `ReadSchedule(raw)` the reader: it decodes with
+unknown fields refused, so comm's old `starts_at`/`ends_at` are an error
+rather than a silently missing start, and every refusal wraps
+`ErrInvalidSchedule` (or `ErrInvalidRule` for a bad rule). `Wire.Schedule()`
+reads an already-decoded body, which is what a consumer whose route table
+binds the fields one by one calls. `WireOf` writes a `Schedule` back.
+
+The end requirement for a list of dates lives in the reader, not in
+`Schedule.Validate`, because it is a rule about what a person may send; a
+`Schedule` built in Go keeps S66's behaviour.
+
+### `open_days`
+
+Decision 359: a period stays open `open_days` calendar days in the zone from
+its occurrence, at the same wall-clock time, and closes early if the next
+period opens first. `Period(at)` applies it: the end it answers is the
+earlier of `opens + open_days` and the next occurrence (or the schedule's
+end). Zero or absent leaves S66's answer, open until the next period. A
+negative count is refused. A moment after a period closed but before the
+next opens still answers that period with its close in the past; whether
+that moment counts as "in a period" is the consumer's comparison, as forms
+already makes.
+
 ## Not decided here
 
 Storage of a schedule (a rule string plus start, end and zone columns) and

@@ -25,11 +25,12 @@ func (d Date) String() string {
 }
 
 type Schedule struct {
-	Start time.Time
-	End   time.Time
-	Zone  *time.Location
-	Rule  *Rule
-	Dates []Date
+	Start    time.Time
+	End      time.Time
+	Zone     *time.Location
+	Rule     *Rule
+	Dates    []Date
+	OpenDays int
 }
 
 const maxEmptyPeriods = 4000
@@ -43,6 +44,9 @@ func (s Schedule) Validate() error {
 	}
 	if (s.Rule == nil) == (len(s.Dates) == 0) {
 		return fmt.Errorf("%w: a schedule is a rule or a list of dates, exactly one", ErrInvalidSchedule)
+	}
+	if s.OpenDays < 0 {
+		return fmt.Errorf("%w: a period cannot stay open for a negative number of days", ErrInvalidSchedule)
 	}
 	if !s.End.IsZero() && s.End.Before(s.Start) {
 		return fmt.Errorf("%w: the end falls before the start", ErrInvalidSchedule)
@@ -161,6 +165,13 @@ func (s Schedule) Period(at time.Time) (start, end time.Time, ok bool) {
 	}
 	if end.IsZero() {
 		end = s.End
+	}
+	if s.OpenDays > 0 {
+		l := start.In(s.Zone)
+		closes := time.Date(l.Year(), l.Month(), l.Day()+s.OpenDays, l.Hour(), l.Minute(), l.Second(), l.Nanosecond(), s.Zone)
+		if end.IsZero() || closes.Before(end) {
+			end = closes
+		}
 	}
 	return start, end, true
 }
