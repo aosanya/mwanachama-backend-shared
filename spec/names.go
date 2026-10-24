@@ -18,8 +18,9 @@ type NameRecord struct {
 }
 
 func (s *Spec) NameRecords() []NameRecord {
-	out := make([]NameRecord, 0, len(s.Objects))
-	for _, o := range s.Objects {
+	objects := s.storedObjects()
+	out := make([]NameRecord, 0, len(objects))
+	for _, o := range objects {
 		out = append(out, NameRecord{
 			Physical: s.TableFor(o),
 			MountKey: s.MountKey(),

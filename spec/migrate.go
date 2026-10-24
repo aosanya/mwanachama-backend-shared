@@ -27,7 +27,7 @@ func Migrate(db *gorm.DB, s *Spec) error {
 // their effects.
 func (s *Spec) DDL(dialect string) []string {
 	var out []string
-	for _, o := range s.Objects {
+	for _, o := range s.storedObjects() {
 		out = append(out, s.createTable(o, dialect))
 		out = append(out, s.createIndexes(o, dialect)...)
 	}

@@ -672,12 +672,46 @@ no module writes them again.
   was nothing to clear. The `SettingChange` is the row decision 281's
   override log appends, whatever stores it.
 
-**Not built yet.** Storage of the two per-agency layers and of the change
-log — beside a module's own tables — is not here: the declaration, the
-check, the resolution and the change step are pure functions over values a
-caller holds. Whether the engine provisions a declared table per instance
-for them or each module keeps its own is the next step of S64 and waits on
-the owner.
+### The engine stores them (decision 398, 2026-10-24)
+
+The engine provisions every module's settings storage. When a spec carries
+settings, `spec.Migrate` creates three more tables **inside that module's own
+table set for that instance**, named exactly as an object's are
+(`<instance>_<mount hash>_<hash of <module>_<table>>`) and recorded in the
+instance's `spec_table_names` registry beside the module's objects. A spec
+with no settings gets none of them. `Spec.SettingsObjects()` declares them and
+`Spec.SettingsTables()` names them.
+
+| Table | Holds |
+| --- | --- |
+| `spec_settings_definition` | `name`, `value`: the definition's values |
+| `spec_settings_override` | `name`, `value`, `set_by`, `set_at`: the owner's overrides |
+| `spec_settings_change` | `id`, `name`, `from_value`, `to_value`, `cleared`, `changed_by`, `changed_at`: every override set or cleared, ordered by `changed_at, id` |
+
+Every value is a JSON document in a text column, so a value reads back as JSON
+decodes it (a whole number as a float, which `CheckSettings` accepts for an
+`int`). The `spec_settings_` prefix is reserved: a module object whose table
+starts with it is refused at load, since it would land on the same hashed
+name.
+
+- **`PutDefinitionSettings(db, spec, values)`** replaces the whole definition
+  layer with `values` after `CheckSettings`; anything off its shape, or not
+  declared, stores nothing.
+- **`LoadSettingLayers(db, spec)`** answers the definition and override maps
+  `Resolve` takes; **`ResolveStored`** and **`ResolveAllStored`** do both
+  steps and report the layer.
+- **`StoreOverride(db, spec, name, value, by, at)`** runs `SetOverride` over
+  the stored overrides and, in one transaction, writes the override and
+  appends its `SettingChange` row. **`StoreClearOverride`** does the same for
+  `ClearOverride`, and writes nothing when there was nothing to clear.
+  **`SettingChanges`** reads the log back in order.
+- Calling any of these for a module that declares no settings is an error.
+
+**Still open, deliberately not built:** what an override that no longer fits
+after a republish (a narrowed enum, a changed type) does — kept silently and
+passed over by `Resolve`, or reported as a conflict. Today the stored row is
+left as it was and `Resolve` passes over it, which is the existing layering
+rule, not a policy; that question waits on the owner.
 
 ## Not solved here
 

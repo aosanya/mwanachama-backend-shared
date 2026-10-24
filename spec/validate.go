@@ -78,6 +78,9 @@ func (s *Spec) Validate() error {
 		}
 
 		table := o.table()
+		if strings.HasPrefix(table, settingsTablePrefix) {
+			add("object %q: the table %q is reserved for the engine's settings storage", o.Name, table)
+		}
 		if !NamePattern.MatchString(table) {
 			add("object %q: table %q is not a usable name", o.Name, table)
 		} else {
