@@ -111,7 +111,7 @@ func TestAnInvalidGeometryIsRefusedOnWrite(t *testing.T) {
 	st, _ := newPlaceStore(t)
 	ctx := context.Background()
 	for name, p := range map[string]Place{
-		"line string":    {ID: "a", Drawn: `{"type":"LineString","coordinates":[[0,0],[1,1]]}`},
+		"one-point line": {ID: "a", Drawn: `{"type":"LineString","coordinates":[[0,0]]}`},
 		"open ring":      {ID: "b", Drawn: `{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1],[0,1]]]}`},
 		"off the planet": {ID: "c", Drawn: `{"type":"Point","coordinates":[0,95]}`},
 		"not json":       {ID: "d", Drawn: `here`},

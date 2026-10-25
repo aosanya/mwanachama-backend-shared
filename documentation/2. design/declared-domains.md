@@ -122,13 +122,15 @@ DDL as well as on the round trip.
 
 ### Carrying a place
 
-`geometry` holds a place as a GeoJSON geometry, and only one of three kinds:
-`Point`, `Polygon` or `MultiPolygon` (member app decisions 302 and 306, row
-S65). It is stored exactly as a `json` document is — `jsonb` on Postgres,
+`geometry` holds a place as a GeoJSON geometry, and only one of four kinds:
+`Point`, `LineString`, `Polygon` or `MultiPolygon` (member app decisions 302
+and 306, row S65; `LineString` added for a street's line, digitaltwin W28). A
+line needs at least two positions; it holds a point only when the point lies
+on one of its segments, and its bounding box is its positions'. It is stored exactly as a `json` document is — `jsonb` on Postgres,
 text on SQLite — so a path index can read into it like any other document.
 What differs is that **it is checked on every write**: `specstore` parses
 the value with `geo.Parse` before the row is written and refuses anything
-else, so a line string, a ring that does not close, a ring of fewer than
+else, so a one-point line, a ring that does not close, a ring of fewer than
 four positions, a longitude outside -180..180 or a latitude outside -90..90
 never reaches the table. A third coordinate (a height) is accepted and
 dropped, and foreign members such as `bbox` are ignored.

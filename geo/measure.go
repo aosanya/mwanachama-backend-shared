@@ -30,6 +30,8 @@ func BoundingBox(g Geometry) Box {
 	switch g.Kind {
 	case KindPoint:
 		positions = []Position{g.Point}
+	case KindLineString:
+		positions = g.LineString
 	case KindPolygon:
 		positions = polygonPositions(g.Polygon)
 	case KindMultiPolygon:
@@ -54,6 +56,8 @@ func Contains(g Geometry, p Position) bool {
 	switch g.Kind {
 	case KindPoint:
 		return g.Point == p
+	case KindLineString:
+		return onRing(Ring(g.LineString), p)
 	case KindPolygon:
 		return polygonContains(g.Polygon, p)
 	case KindMultiPolygon:

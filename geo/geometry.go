@@ -10,6 +10,7 @@ import (
 
 const (
 	KindPoint        = "Point"
+	KindLineString   = "LineString"
 	KindPolygon      = "Polygon"
 	KindMultiPolygon = "MultiPolygon"
 )
@@ -22,6 +23,8 @@ func (p Position) Lon() float64 { return p[0] }
 
 func (p Position) Lat() float64 { return p[1] }
 
+type LineString []Position
+
 type Ring []Position
 
 type Polygon []Ring
@@ -31,12 +34,17 @@ type MultiPolygon []Polygon
 type Geometry struct {
 	Kind         string
 	Point        Position
+	LineString   LineString
 	Polygon      Polygon
 	MultiPolygon MultiPolygon
 }
 
 func NewPoint(lon, lat float64) Geometry {
 	return Geometry{Kind: KindPoint, Point: Position{lon, lat}}
+}
+
+func NewLineString(positions ...Position) Geometry {
+	return Geometry{Kind: KindLineString, LineString: LineString(positions)}
 }
 
 func NewPolygon(rings ...Ring) Geometry {
@@ -69,6 +77,8 @@ func Parse(raw []byte) (Geometry, error) {
 	switch w.Type {
 	case KindPoint:
 		g.Point, err = decodePosition(w.Coordinates)
+	case KindLineString:
+		g.LineString, err = decodeLineString(w.Coordinates)
 	case KindPolygon:
 		var rings []json.RawMessage
 		if err = json.Unmarshal(w.Coordinates, &rings); err != nil {
@@ -91,7 +101,7 @@ func Parse(raw []byte) (Geometry, error) {
 			g.MultiPolygon = append(g.MultiPolygon, p)
 		}
 	default:
-		return Geometry{}, invalid("type %q is not one of Point, Polygon, MultiPolygon", w.Type)
+		return Geometry{}, invalid("type %q is not one of Point, LineString, Polygon, MultiPolygon", w.Type)
 	}
 	if err != nil {
 		return Geometry{}, err
@@ -117,12 +127,14 @@ func (g Geometry) MarshalJSON() ([]byte, error) {
 	switch g.Kind {
 	case KindPoint:
 		coordinates = g.Point
+	case KindLineString:
+		coordinates = g.LineString
 	case KindPolygon:
 		coordinates = g.Polygon
 	case KindMultiPolygon:
 		coordinates = g.MultiPolygon
 	default:
-		return nil, invalid("type %q is not one of Point, Polygon, MultiPolygon", g.Kind)
+		return nil, invalid("type %q is not one of Point, LineString, Polygon, MultiPolygon", g.Kind)
 	}
 	return json.Marshal(struct {
 		Type        string `json:"type"`
@@ -137,6 +149,25 @@ func (g *Geometry) UnmarshalJSON(raw []byte) error {
 	}
 	*g = parsed
 	return nil
+}
+
+func decodeLineString(raw json.RawMessage) (LineString, error) {
+	var positions []json.RawMessage
+	if err := json.Unmarshal(raw, &positions); err != nil {
+		return nil, invalid("line string coordinates: %v", err)
+	}
+	if len(positions) < 2 {
+		return nil, invalid("a line string needs at least two positions, has %d", len(positions))
+	}
+	line := make(LineString, 0, len(positions))
+	for _, p := range positions {
+		pos, err := decodePosition(p)
+		if err != nil {
+			return nil, err
+		}
+		line = append(line, pos)
+	}
+	return line, nil
 }
 
 func decodePolygon(rings []json.RawMessage) (Polygon, error) {

@@ -15,6 +15,7 @@ func TestParseAcceptsTheThreeKinds(t *testing.T) {
 		"point":             `{"type":"Point","coordinates":[36.8219,-1.2921]}`,
 		"point with height": `{"type":"Point","coordinates":[36.8219,-1.2921,1795]}`,
 		"polygon":           square,
+		"line string":       `{"type":"LineString","coordinates":[[0,0],[1,1],[2,0]]}`,
 		"multipolygon":      `{"type":"MultiPolygon","coordinates":[[[[0,0],[1,0],[1,1],[0,0]]],[[[5,5],[6,5],[6,6],[5,5]]]]}`,
 		"with a bbox":       `{"type":"Point","coordinates":[1,2],"bbox":[1,2,1,2]}`,
 	} {
@@ -28,7 +29,7 @@ func TestParseRefusesWhatIsNotAPlace(t *testing.T) {
 	for name, raw := range map[string]string{
 		"not json":          `{"type":`,
 		"no type":           `{"coordinates":[1,2]}`,
-		"line string":       `{"type":"LineString","coordinates":[[0,0],[1,1]]}`,
+		"one-point line":    `{"type":"LineString","coordinates":[[0,0]]}`,
 		"lowercase type":    `{"type":"point","coordinates":[1,2]}`,
 		"no coordinates":    `{"type":"Point"}`,
 		"null coordinates":  `{"type":"Point","coordinates":null}`,

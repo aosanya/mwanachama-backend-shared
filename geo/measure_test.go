@@ -94,3 +94,16 @@ func TestRoundForPublicMovesAPointNoMoreThanAboutAHundredMetres(t *testing.T) {
 		t.Fatal("two homes in the same cell read apart")
 	}
 }
+
+func TestALineHoldsOnlyThePointsOnIt(t *testing.T) {
+	g := mustParse(t, `{"type":"LineString","coordinates":[[0,0],[2,0],[2,2]]}`)
+	if !geo.Contains(g, geo.Position{1, 0}) || !geo.Contains(g, geo.Position{2, 1}) {
+		t.Fatal("a point on the line is not held")
+	}
+	if geo.Contains(g, geo.Position{1, 1}) {
+		t.Fatal("a point off the line is held")
+	}
+	if b := geo.BoundingBox(g); b != (geo.Box{MinLon: 0, MinLat: 0, MaxLon: 2, MaxLat: 2}) {
+		t.Fatalf("box = %+v", b)
+	}
+}
