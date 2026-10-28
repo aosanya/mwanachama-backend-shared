@@ -328,13 +328,99 @@ Constraints on the segments:
 
 `spec.Migrate(db, s)` creates a table per declared object and its indexes,
 idempotently. There is no `AutoMigrate` and there are no row structs.
-`Spec.DDL(dialect)` returns the same statements without running them, which
+`Spec.DDL(dialect)` returns the create statements without running them, which
 is what lets a spec be reviewed as SQL before it touches a database, and what
 lets a test assert on the statements rather than on their effects.
 
-What `Migrate` does **not** do is drop or alter anything. A column that stops
-being declared stays in the database; a retirement is a migration the module
-writes itself.
+`Migrate` evolves a table that already exists, additively and nothing else.
+What it does **not** do is drop, rename or retype anything: a column that stops
+being declared stays in the database, and a retirement is a migration the
+module writes itself.
+
+### A table that already exists gains the columns it lacks
+
+`create table if not exists` is a no-op on a table that is there, so a declared
+object that gained a field after its table was made used to keep its old
+columns, and the first write naming the new one failed with a raw driver error
+(`column "chat_enabled" of relation "..." does not exist`, SQLSTATE 42703). The
+AI backend's `Account` met it on 2026-10-28 when it gained `chat_enabled`,
+`chat_label`, `last_test_prompt`, `last_test_reply` and `last_test_ms`.
+
+For each stored object, in declared order, `Migrate` now:
+
+1. runs the object's `create table if not exists`;
+2. reads the table's columns (`information_schema.columns` on Postgres,
+   `pragma_table_info` on SQLite);
+3. runs one `alter table <table> add column <column>` for every declared field
+   the table lacks, in declared order, all in one transaction, so a table
+   either gains all of its new columns or none;
+4. runs the object's index statements, last, so an index declared on a field
+   that has only just arrived has its column.
+
+`Spec.AlterDDL(dialect, existing)` returns the statements of step 3 without
+running anything, given a map of physical table to the column names it holds.
+A table missing from the map is skipped, because `DDL` creates it. `Spec.DDL`
+is unchanged and still describes a table that does not exist yet. For the AI
+`Account` on Postgres, against a table that lacks the five fields:
+
+```sql
+alter table <table> add column last_test_prompt text default ''
+alter table <table> add column last_test_reply text default ''
+alter table <table> add column last_test_ms bigint default 0
+alter table <table> add column chat_enabled boolean default false
+alter table <table> add column chat_label text default ''
+```
+
+The column is the one `create table` uses, with three differences that exist
+because the table may already hold rows:
+
+- **A required field takes its type's empty value as a default.** Validation
+  refuses a default on a required field, so `create table` gives such a column
+  `not null` and no default, which is right for a table that is empty and
+  impossible for one that is not: SQLite refuses the alter outright and
+  Postgres refuses it as soon as a row exists. The added column is
+  `not null default false` (`bool`), `default 0` (`int`, `float`) or
+  `default ''` (everything else), so existing rows read the empty value and the
+  module still rejects an empty write. A required `json` or `geometry` field
+  has no empty value, so it is added **nullable**: existing rows read `NULL`
+  and the database does not enforce the requirement on that one column.
+- **A `unique` field arrives as a unique index.** SQLite cannot add a unique
+  column, so both dialects add the plain column and then
+  `create unique index if not exists <table>_<field>_uq on <table> (<field>)`,
+  in the same transaction. A non-null unique column added to a table that
+  already holds two rows cannot hold, since both read the empty default; the
+  transaction rolls back and `Migrate` returns the database's error. Declare
+  such a field `nullable`.
+- **Never a primary key.** A primary key column cannot be added to a table.
+  `AlterDDL` refuses a table that lacks one, with `table <t> exists without
+  its primary key column <c>`, because a statement list that quietly omits the
+  key would read as complete. `Migrate` does **not** refuse: it adds the
+  table's other missing columns, leaves the key alone and returns no error,
+  which is what it did before it evolved tables. A module whose key grew
+  after its table was made repairs it itself, and `mwanachama-backend-permissions`
+  does exactly that, adding `partition` to a grant table from before partitions
+  and re-keying it after `Migrate` returns. Refusing would break that module's
+  legacy path; whether `Migrate` should one day refuse is a decision for the
+  owner, and the one place to change it is the `evolveTable` call to
+  `alterObject`.
+
+Limits, all deliberate:
+
+- It is **additive only**. A rename, a type change and a removal are manual:
+  a renamed field is a new column plus a copy, an existing column is never
+  altered, and a column that stops being declared stays (S53 records that a
+  dropped required field leaves a `not null` column that blocks every insert).
+- It looks at column **names** only. A column of the wrong type or nullability
+  is not noticed, and an adopted table still keeps its own column types.
+- Running it twice is a no-op: the second run finds every column.
+- Two `Migrate` calls on the same instance at the same moment can both find a
+  column missing, and the second `alter` then fails with "already exists".
+  Provision an instance from one place at a time.
+- This repo's tests run `Migrate` on SQLite only; the Postgres integration
+  tests skip without `POSTGRES_URL`. The Postgres statements are pinned as text
+  by `TestAlterDDLNamesTheStatementsForAPostgresAccountThatGainedFiveFields`
+  and `TestAlterDDLSnapshotsEveryKindOfAddedColumnOnPostgres`, and the Postgres
+  column read mirrors `ColumnIsTextual`'s.
 
 ### An adopted table keeps its own column types
 

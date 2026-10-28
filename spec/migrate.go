@@ -7,24 +7,31 @@ import (
 	"gorm.io/gorm"
 )
 
-// Migrate creates a table for every declared object, and its indexes.
-//
-// It is the spec's whole storage story: there are no row structs and no
-// AutoMigrate, because the objects are data. Running it twice is a no-op.
 func Migrate(db *gorm.DB, s *Spec) error {
 	dialect := db.Dialector.Name()
-	for _, stmt := range s.DDL(dialect) {
-		if err := db.Exec(stmt).Error; err != nil {
-			return fmt.Errorf("spec: migrate: %w\n  in: %s", err, stmt)
+	for _, o := range s.storedObjects() {
+		if err := execDDL(db, s.createTable(o, dialect)); err != nil {
+			return err
+		}
+		if err := evolveTable(db, s, o, dialect); err != nil {
+			return err
+		}
+		for _, stmt := range s.createIndexes(o, dialect) {
+			if err := execDDL(db, stmt); err != nil {
+				return err
+			}
 		}
 	}
 	return RecordNames(db, s)
 }
 
-// DDL returns every statement Migrate would run, in order. Having it
-// separately is what lets a spec be reviewed as SQL before it touches a
-// database, and what lets a test assert on the statements rather than on
-// their effects.
+func execDDL(db *gorm.DB, stmt string) error {
+	if err := db.Exec(stmt).Error; err != nil {
+		return fmt.Errorf("spec: migrate: %w\n  in: %s", err, stmt)
+	}
+	return nil
+}
+
 func (s *Spec) DDL(dialect string) []string {
 	var out []string
 	for _, o := range s.storedObjects() {

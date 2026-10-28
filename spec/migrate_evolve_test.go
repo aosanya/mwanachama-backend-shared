@@ -42,7 +42,7 @@ const evolveSpecV2 = `{
   ]
 }`
 
-func TestS52_OpenBug_SecondMigrateDoesNotAddANewColumn(t *testing.T) {
+func TestS52_SecondMigrateAddsANewColumn(t *testing.T) {
 	db := open(t)
 
 	s1, err := spec.Parse([]byte(evolveSpecV1))
@@ -71,10 +71,10 @@ func TestS52_OpenBug_SecondMigrateDoesNotAddANewColumn(t *testing.T) {
 		held[c.Name()] = true
 	}
 	if !held["color"] {
-		t.Fatalf("S52 open bug: after a second Migrate adding 'color' to the widget object, %s has columns %v — the blueprint gained a field but the already-provisioned table's schema was never altered to match, so Migrate is not the whole storage story for a domain that evolves its own blueprint, only for one that never has", table, held)
+		t.Fatalf("S52: after a second Migrate adding 'color' to the widget object, %s has columns %v — the blueprint gained a field but the already-provisioned table's schema was never altered to match, so Migrate is not the whole storage story for a domain that evolves its own blueprint, only for one that never has", table, held)
 	}
 
 	if err := db.Exec(fmt.Sprintf("insert into %s (id, name, color) values (?, ?, ?)", table), "w1", "widget one", "red").Error; err != nil {
-		t.Fatalf("S52 open bug: insert naming the newly-declared 'color' column failed: %v — a caller who follows every CLAUDE.md's own convention ('adding a field means editing the blueprint and the Go type together') gets a raw driver error instead of the write it declared, on any instance migrated before the field was added", err)
+		t.Fatalf("S52: insert naming the newly-declared 'color' column failed: %v — a caller who follows every CLAUDE.md's own convention ('adding a field means editing the blueprint and the Go type together') gets a raw driver error instead of the write it declared, on any instance migrated before the field was added", err)
 	}
 }
