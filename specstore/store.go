@@ -22,6 +22,8 @@ type Store struct {
 	spec    *spec.Spec
 	objects map[string]spec.Object
 
+	runID string
+
 	mu    sync.RWMutex
 	unset map[string]string
 }
@@ -95,7 +97,12 @@ func disagreements(o spec.Object, carrier any) []string {
 
 func (st *Store) Spec() *spec.Spec { return st.spec }
 
-func (st *Store) Table(role string) string { return st.spec.TableFor(st.Object(role)) }
+func (st *Store) Table(role string) string {
+	if st.runID != "" {
+		return st.TestTable(role)
+	}
+	return st.spec.TableFor(st.Object(role))
+}
 
 func (st *Store) TestTable(role string) string { return st.spec.TestTableFor(st.Object(role)) }
 
@@ -108,7 +115,11 @@ func (st *Store) Object(role string) spec.Object {
 }
 
 func (st *Store) Query(ctx context.Context, role string) *gorm.DB {
-	return st.db.WithContext(ctx).Table(st.Table(role))
+	q := st.db.WithContext(ctx).Table(st.Table(role))
+	if st.runID != "" {
+		q = q.Where(spec.RunIDColumn+" = ?", st.runID)
+	}
+	return q
 }
 
 func (st *Store) Unset(role, field string) string {
@@ -145,7 +156,7 @@ func (st *Store) Take(q *gorm.DB, role string, out any, notFound error) error {
 }
 
 func (st *Store) Insert(ctx context.Context, role string, v any) error {
-	row, err := Encode(st.Object(role), v)
+	row, err := st.Row(role, v)
 	if err != nil {
 		return err
 	}
