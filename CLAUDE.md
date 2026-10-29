@@ -87,7 +87,10 @@ story — there is no `AutoMigrate` and there are no row structs.
 
 It knows nothing about any one module: a table is
 **`<instance>_hashOf(<mount>)_hashOf(<module>_<object>)`** (S29, 2026-09-30) —
-only the instance segment stays readable. The middle is 8 hex characters over
+only the instance segment stays readable, bar a `_test` suffix (HS292, decision
+85, 2026-10-29): every object has a second table named like it with `_test`
+added and a `run_id` column the live one lacks, created by the same
+`Migrate`; see [declared-domains.md](documentation/2.%20design/declared-domains.md#a-test-copy-beside-every-table). The middle is 8 hex characters over
 the mount, so one mount's tables sort together as a block; the last is 12 hex
 over `<module>_<object>`, so the same table reads identically in every agency.
 `RawNameFor` builds the full logical name the registry records. Every identifier is validated against a

@@ -253,8 +253,9 @@ to "escape it instead".
 A physical name is **`<instance>_hashOf(<mount>)_hashOf(<module>_<object>)`**
 — `wakala_0d6e4079_b21db826d3c0` for catalog's `suggestion_comments` object
 mounted as `main` on instance `wakala` (verified by calling `TableFor`
-directly). Only the instance stays readable; the mount and the object each
-get their own digest rather than sharing one.
+directly). Only the instance stays readable, with one exception: the
+`_test` suffix of a test copy (below). The mount and the object each get their
+own digest rather than sharing one.
 
 - **`instance`** separates tenants, and stays readable so a table can be
   attributed to one at a glance. It is the agency's `tableSlug()` for a module
@@ -276,6 +277,48 @@ get their own digest rather than sharing one.
 pair (dropping the mount from that second digest, since it already has its
 own segment); `IndexFor` keeps a readable suffix on the hashed table
 (`<table>_<index>_idx`) — the one piece of debuggability left, and it fits.
+
+### A test copy beside every table
+
+Decision 85 (a) to (c): every declared object has a second table, named like
+the live one with **`_test`** added (`TestSuffix`), so
+`wakala_0d6e4079_b21db826d3c0` has
+`wakala_0d6e4079_b21db826d3c0_test`. This adds one readable piece to the
+rule above, at the very end of the name; a live name ends in hex, so the suffix
+is never ambiguous. `TestTableFor` builds it, `LiveTableOf` strips it and
+`Store.TestTable(role)` names it for a role. `RawNameFor` is unchanged: the raw
+name belongs to the object, not to a copy of it, and the name registry records
+live tables only. `LookupName` given a test table answers the live record.
+
+- **Created together.** `Migrate` creates, evolves and indexes the copy in the
+  same pass that does the live table, and `DDL` emits it after the live
+  tables, so switching a module on is the only moment either exists and
+  nothing is created while a test run is running. `AlterDDL` and the evolving
+  `Migrate` give the copy every column the live table gains.
+- **A run id column.** The copy has `run_id` (`RunIDColumn`) as its first
+  column, `text not null` with no default, which the live table does not have.
+  A row that does not name its run is refused by the database, and a spec
+  field named `run_id` is refused at load. The name `run_id` is this change's
+  choice; decision 85 left the column's name unsettled.
+- **One copy shared by all runs.** So that two runs can each hold "ticket 1",
+  the copy's primary key is `(run_id, <declared key>)`, every declared index
+  starts with `run_id`, and a field marked `unique` becomes a unique index on
+  `(run_id, field)` named `<test table>_<field>_uq` rather than a table-wide
+  constraint. Uniqueness therefore holds inside one run and never across runs.
+  The live table keeps its own key and constraints.
+- **Not copied.** The settings tables (`spec_settings_` tables, see "A module declares its settings") are the
+  engine's, not the module's data, so they have no copy; a run reads the live
+  settings.
+- **Length.** The copy's table name is five bytes longer and its indexes five
+  bytes longer than the live ones, so the load-time check measures them too:
+  an index that fits live at 59 to 63 bytes is refused, because the copy's
+  name would be truncated silently. This is the one way a spec that loaded
+  before can fail to load.
+- **Counting tables.** The copies are real tables, so anything counting or
+  listing tables must exclude `%_test` as it excludes `%_spec_table_names`.
+
+Writing into a copy, and removing a run's rows by run id, belong to the test
+runner and are not part of this engine.
 
 ### Why a hash, and what it costs
 
@@ -327,7 +370,8 @@ Constraints on the segments:
 ## Migrate is the whole storage story
 
 `spec.Migrate(db, s)` creates a table per declared object and its indexes,
-idempotently. There is no `AutoMigrate` and there are no row structs.
+and a `_test` copy of each (see [a test copy beside every
+table](#a-test-copy-beside-every-table)), idempotently. There is no `AutoMigrate` and there are no row structs.
 `Spec.DDL(dialect)` returns the create statements without running them, which
 is what lets a spec be reviewed as SQL before it touches a database, and what
 lets a test assert on the statements rather than on their effects.
