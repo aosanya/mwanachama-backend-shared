@@ -317,8 +317,21 @@ live tables only. `LookupName` given a test table answers the live record.
 - **Counting tables.** The copies are real tables, so anything counting or
   listing tables must exclude `%_test` as it excludes `%_spec_table_names`.
 
-Writing into a copy, and removing a run's rows by run id, belong to the test
-runner and are not part of this engine.
+### Writing into a copy, one run at a time (HS280)
+
+`Store.ForRun(runID)` returns a store over the same database and spec whose
+`Table` is the copy, whose `Query` is the copy filtered to `run_id = <run>`,
+and whose `Insert` and `Row` stamp the run id on the row. A module that reaches
+its tables through `Query`, `Row` and `Insert` therefore writes only to the
+copy, and two runs that use the same key never meet. A module that builds its
+own SQL against `Table` sees the copy's name but not the run filter, so it must
+filter on `run_id` itself.
+
+`RowsOfRun(ctx, db, spec, runID)` counts a run's rows in each table of the
+spec, which is what a run's "what was stored" lists, and `RemoveRun` deletes
+them, so removing a run leaves the live tables and every other run's rows
+alone. An empty run id is refused by all three, so a missing id can never
+widen to the whole copy or fall back to the live table.
 
 ### Why a hash, and what it costs
 
