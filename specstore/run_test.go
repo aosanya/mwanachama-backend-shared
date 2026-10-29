@@ -134,3 +134,17 @@ func TestARunWithNoIDIsRefused(t *testing.T) {
 		t.Fatalf("RowsOfRun(\"\") = %v, want ErrRunIDEmpty", err)
 	}
 }
+
+func TestRemovingARunFromASpecWhoseTablesWereNeverCreatedIsQuiet(t *testing.T) {
+	st, _ := newStore(t)
+	bare := openDB(t)
+
+	removed, err := specstore.RemoveRun(context.Background(), bare, st.Spec(), "run-1")
+	if err != nil || removed != 0 {
+		t.Fatalf("remove = %d, %v; want 0 and no error", removed, err)
+	}
+	rows, err := specstore.RowsOfRun(context.Background(), bare, st.Spec(), "run-1")
+	if err != nil || len(rows) != 0 {
+		t.Fatalf("rows = %+v, %v; want none and no error", rows, err)
+	}
+}

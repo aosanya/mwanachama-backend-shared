@@ -40,6 +40,9 @@ func RemoveRun(ctx context.Context, db *gorm.DB, s *spec.Spec, runID string) (in
 	}
 	var removed int64
 	for _, o := range s.Objects {
+		if !db.Migrator().HasTable(s.TestTableFor(o)) {
+			continue
+		}
 		res := db.WithContext(ctx).Table(s.TestTableFor(o)).Where(spec.RunIDColumn+" = ?", runID).Delete(nil)
 		if res.Error != nil {
 			return removed, fmt.Errorf("specstore: remove run %s from %s: %w", runID, s.TestTableFor(o), res.Error)
@@ -62,6 +65,9 @@ func RowsOfRun(ctx context.Context, db *gorm.DB, s *spec.Spec, runID string) ([]
 	var out []RunRows
 	for _, o := range s.Objects {
 		table := s.TestTableFor(o)
+		if !db.Migrator().HasTable(table) {
+			continue
+		}
 		var n int64
 		if err := db.WithContext(ctx).Table(table).Where(spec.RunIDColumn+" = ?", runID).Count(&n).Error; err != nil {
 			return nil, fmt.Errorf("specstore: count run %s in %s: %w", runID, table, err)
