@@ -89,9 +89,11 @@ func (s *Spec) Validate() error {
 			}
 			seenTable[table] = true
 			claim("table", table, s.TableFor(o))
+			claim("test table", table, s.TestTableFor(o))
 			for _, idx := range o.Indexes {
 				if NamePattern.MatchString(idx.Name) {
 					claim("index", table+"."+idx.Name, s.IndexFor(o, idx))
+					claim("test index", table+"."+idx.Name, s.TestIndexFor(o, idx))
 				}
 			}
 		}
@@ -138,6 +140,10 @@ func (o Object) validate() []string {
 		}
 		seen[f.Name] = true
 		byName[f.Name] = f
+
+		if f.Name == RunIDColumn {
+			add("object %q: the field name %q is reserved for the run id of the test copy", o.Name, RunIDColumn)
+		}
 
 		if strings.TrimSpace(f.Description) == "" {
 			add("object %q: field %q has no description", o.Name, f.Name)

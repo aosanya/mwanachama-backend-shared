@@ -10,19 +10,31 @@ import (
 func Migrate(db *gorm.DB, s *Spec) error {
 	dialect := db.Dialector.Name()
 	for _, o := range s.storedObjects() {
-		if err := execDDL(db, s.createTable(o, dialect)); err != nil {
+		if err := migrateTable(db, s, o, dialect, false); err != nil {
 			return err
 		}
-		if err := evolveTable(db, s, o, dialect); err != nil {
+	}
+	for _, o := range s.Objects {
+		if err := migrateTable(db, s, o, dialect, true); err != nil {
 			return err
-		}
-		for _, stmt := range s.createIndexes(o, dialect) {
-			if err := execDDL(db, stmt); err != nil {
-				return err
-			}
 		}
 	}
 	return RecordNames(db, s)
+}
+
+func migrateTable(db *gorm.DB, s *Spec, o Object, dialect string, test bool) error {
+	if err := execDDL(db, s.createTable(o, dialect, test)); err != nil {
+		return err
+	}
+	if err := evolveTable(db, s, o, dialect, test); err != nil {
+		return err
+	}
+	for _, stmt := range s.createIndexes(o, dialect, test) {
+		if err := execDDL(db, stmt); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func execDDL(db *gorm.DB, stmt string) error {
@@ -35,25 +47,45 @@ func execDDL(db *gorm.DB, stmt string) error {
 func (s *Spec) DDL(dialect string) []string {
 	var out []string
 	for _, o := range s.storedObjects() {
-		out = append(out, s.createTable(o, dialect))
-		out = append(out, s.createIndexes(o, dialect)...)
+		out = append(out, s.createTable(o, dialect, false))
+		out = append(out, s.createIndexes(o, dialect, false)...)
+	}
+	for _, o := range s.Objects {
+		out = append(out, s.createTable(o, dialect, true))
+		out = append(out, s.createIndexes(o, dialect, true)...)
 	}
 	return out
 }
 
-func (s *Spec) createTable(o Object, dialect string) string {
-	table := s.TableFor(o)
+func (s *Spec) physicalTable(o Object, test bool) string {
+	if test {
+		return s.TestTableFor(o)
+	}
+	return s.TableFor(o)
+}
+
+func runIDColumn() string {
+	return RunIDColumn + " text not null"
+}
+
+func (s *Spec) createTable(o Object, dialect string, test bool) string {
+	table := s.physicalTable(o, test)
 
 	var cols []string
 	var primaries []string
+	if test {
+		cols = append(cols, "  "+runIDColumn())
+		primaries = append(primaries, RunIDColumn)
+	}
 	for _, f := range o.Fields {
+		if test {
+			f.Unique = false
+		}
 		cols = append(cols, "  "+f.column(dialect))
 		if f.Primary {
 			primaries = append(primaries, f.Name)
 		}
 	}
-	// A single primary is declared on the column; a composite needs its own
-	// clause, and declaring it that way for both keeps one code path.
 	cols = append(cols, "  primary key ("+strings.Join(primaries, ", ")+")")
 
 	return fmt.Sprintf("create table if not exists %s (\n%s\n)", table, strings.Join(cols, ",\n"))
@@ -130,11 +162,17 @@ func (f Field) defaultClause() string {
 	}
 }
 
-func (s *Spec) createIndexes(o Object, dialect string) []string {
-	table := s.TableFor(o)
+func (s *Spec) createIndexes(o Object, dialect string, test bool) []string {
+	table := s.physicalTable(o, test)
 	var out []string
+	if test {
+		out = append(out, s.testUniqueFieldIndexes(o)...)
+	}
 	for _, idx := range o.Indexes {
 		name := s.IndexFor(o, idx)
+		if test {
+			name = s.TestIndexFor(o, idx)
+		}
 
 		unique := ""
 		if idx.Unique {
@@ -143,12 +181,12 @@ func (s *Spec) createIndexes(o Object, dialect string) []string {
 
 		var on string
 		switch {
+		case idx.Path != nil && test:
+			on = "(" + RunIDColumn + ", (" + docPathExpr(idx.Path.Field, idx.Path.Path, dialect) + "))"
 		case idx.Path != nil:
-			// Postgres needs the expression in its own parentheses inside
-			// the index's — `on t ((expr))`, not `on t (expr)`, which is a
-			// syntax error. SQLite accepts one pair, so a unit test on
-			// SQLite alone will not catch a missing one.
 			on = "((" + docPathExpr(idx.Path.Field, idx.Path.Path, dialect) + "))"
+		case test:
+			on = "(" + strings.Join(append([]string{RunIDColumn}, idx.Fields...), ", ") + ")"
 		default:
 			on = "(" + strings.Join(idx.Fields, ", ") + ")"
 		}
@@ -162,6 +200,22 @@ func (s *Spec) createIndexes(o Object, dialect string) []string {
 			unique, name, table, on, where))
 	}
 	return out
+}
+
+func (s *Spec) testUniqueFieldIndexes(o Object) []string {
+	table := s.TestTableFor(o)
+	var out []string
+	for _, f := range o.Fields {
+		if f.Unique && !f.Primary {
+			out = append(out, fmt.Sprintf("create unique index if not exists %s on %s (%s, %s)",
+				testUniqueIndexName(table, f.Name), table, RunIDColumn, f.Name))
+		}
+	}
+	return out
+}
+
+func testUniqueIndexName(table, field string) string {
+	return table + "_" + field + "_uq"
 }
 
 // DocPathExpr builds the SQL that reads one path out of a json column, in

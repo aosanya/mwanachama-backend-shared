@@ -39,7 +39,7 @@ func (l *sqlLog) starting(prefix string) []string {
 	defer l.mu.Unlock()
 	var out []string
 	for _, s := range l.stmts {
-		if strings.HasPrefix(strings.TrimSpace(s), prefix) {
+		if strings.HasPrefix(strings.TrimSpace(s), prefix) && !strings.Contains(s, spec.TestSuffix+" ") {
 			out = append(out, strings.TrimSpace(s))
 		}
 	}
@@ -446,9 +446,9 @@ func TestDDLStillCreatesAFreshTableWithItsUniqueClause(t *testing.T) {
 		declField("id", "string", `"primary": true`),
 		declField("code", "string", `"unique": true`),
 	))
-	stmts := s.DDL("postgres")
-	if len(stmts) != 1 {
-		t.Fatalf("a table with no declared indexes is one statement: %q", stmts)
+	stmts := s.DDL("postgres")[:1]
+	if len(s.DDL("postgres")) != 3 {
+		t.Fatalf("a table with no declared indexes is one statement, then its test copy and the copy's unique index: %q", s.DDL("postgres"))
 	}
 	if !strings.Contains(stmts[0], "code text default '' unique") {
 		t.Fatalf("a new table keeps the unique clause on its column: %q", stmts)

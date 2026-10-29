@@ -108,6 +108,9 @@ func RecordNames(db *gorm.DB, s *Spec) error {
 
 func LookupName(db *gorm.DB, physical string) (NameRecord, bool, error) {
 	var rec NameRecord
+	if live, isTest := LiveTableOf(physical); isTest {
+		physical = live
+	}
 	table := NameRegistryTableFor(InstanceOf(physical))
 	err := db.Table(table).Where("physical = ?", physical).Take(&rec).Error
 	if err == gorm.ErrRecordNotFound {

@@ -97,6 +97,8 @@ func (st *Store) Spec() *spec.Spec { return st.spec }
 
 func (st *Store) Table(role string) string { return st.spec.TableFor(st.Object(role)) }
 
+func (st *Store) TestTable(role string) string { return st.spec.TestTableFor(st.Object(role)) }
+
 func (st *Store) Object(role string) spec.Object {
 	o, ok := st.objects[role]
 	if !ok {

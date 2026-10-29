@@ -13,12 +13,23 @@ func (s *Spec) AlterDDL(dialect string, existing map[string][]string) ([]string,
 		if !there {
 			continue
 		}
-		stmts, missingKeys, err := s.alterObject(o, dialect, held)
+		stmts, missingKeys, err := s.alterObject(o, dialect, held, false)
 		if err != nil {
 			return nil, err
 		}
 		if len(missingKeys) > 0 {
 			return nil, missingKeyError(s.TableFor(o), missingKeys[0])
+		}
+		out = append(out, stmts...)
+	}
+	for _, o := range s.Objects {
+		held, there := existing[s.TestTableFor(o)]
+		if !there {
+			continue
+		}
+		stmts, _, err := s.alterObject(o, dialect, held, true)
+		if err != nil {
+			return nil, err
 		}
 		out = append(out, stmts...)
 	}
@@ -30,8 +41,8 @@ func missingKeyError(table, column string) error {
 		table, column)
 }
 
-func (s *Spec) alterObject(o Object, dialect string, held []string) (stmts []string, missingKeys []string, err error) {
-	table := s.TableFor(o)
+func (s *Spec) alterObject(o Object, dialect string, held []string, test bool) (stmts []string, missingKeys []string, err error) {
+	table := s.physicalTable(o, test)
 	have := make(map[string]bool, len(held))
 	for _, name := range held {
 		have[name] = true
@@ -52,7 +63,11 @@ func (s *Spec) alterObject(o Object, dialect string, held []string) (stmts []str
 				return nil, nil, fmt.Errorf("spec: migrate: the unique index for new column %s of %s needs %d bytes as %q, and the database truncates at %d",
 					f.Name, table, len(index), index, MaxIdentifier)
 			}
-			stmts = append(stmts, fmt.Sprintf("create unique index if not exists %s on %s (%s)", index, table, f.Name))
+			columns := f.Name
+			if test {
+				columns = RunIDColumn + ", " + f.Name
+			}
+			stmts = append(stmts, fmt.Sprintf("create unique index if not exists %s on %s (%s)", index, table, columns))
 		}
 	}
 	return stmts, missingKeys, nil
@@ -84,13 +99,13 @@ func emptyValueSQL(t FieldType) (string, bool) {
 	}
 }
 
-func evolveTable(db *gorm.DB, s *Spec, o Object, dialect string) error {
-	table := s.TableFor(o)
+func evolveTable(db *gorm.DB, s *Spec, o Object, dialect string, test bool) error {
+	table := s.physicalTable(o, test)
 	held, err := columnNames(db, table)
 	if err != nil {
 		return err
 	}
-	stmts, _, err := s.alterObject(o, dialect, held)
+	stmts, _, err := s.alterObject(o, dialect, held, test)
 	if err != nil || len(stmts) == 0 {
 		return err
 	}

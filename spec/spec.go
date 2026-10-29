@@ -43,6 +43,10 @@ const HashLength = 12
 
 const NameRegistrySuffix = "spec_table_names"
 
+const TestSuffix = "_test"
+
+const RunIDColumn = "run_id"
+
 // MaxIdentifier is Postgres's identifier limit. It matters because the
 // database does not complain: NAMEDATALEN-1 is 63 bytes and anything longer
 // is silently truncated, so two names that agree for 63 bytes are one name.
@@ -293,6 +297,19 @@ func (s *Spec) TableFor(o Object) string {
 
 func (s *Spec) IndexFor(o Object, idx Index) string {
 	return s.TableFor(o) + "_" + idx.Name + "_idx"
+}
+
+func (s *Spec) TestTableFor(o Object) string {
+	return s.TableFor(o) + TestSuffix
+}
+
+func (s *Spec) TestIndexFor(o Object, idx Index) string {
+	return s.TestTableFor(o) + "_" + idx.Name + "_idx"
+}
+
+func LiveTableOf(physical string) (string, bool) {
+	live := strings.TrimSuffix(physical, TestSuffix)
+	return live, live != physical
 }
 
 func (o Object) table() string {
