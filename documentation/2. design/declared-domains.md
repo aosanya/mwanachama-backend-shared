@@ -549,6 +549,45 @@ database, not the declaration**:
 `documentation/2. design/adopted-column-types.md` records what the drift
 actually broke there.
 
+### Adoption refuses a column type the engine cannot read (S39)
+
+`AdoptLegacy` is where the drift starts, so on **Postgres** it now checks the
+types before it renames anything. For every object whose declared table does
+not exist yet and whose legacy table does, each declared field's column is read
+from `information_schema.columns` (under its old name, if `Legacy.Columns`
+renames it) and compared with what `Migrate` would have declared, by **family**:
+
+| family | held types that count |
+| --- | --- |
+| text | `text`, `character varying`, `character`, `varchar`, `bpchar` |
+| int | `smallint`, `integer`, `bigint` |
+| float | `real`, `double precision`, `numeric`, `decimal` |
+| bool | `boolean` |
+| bytes | `bytea` |
+| json | `json`, `jsonb` |
+
+Any other held type is its own family, so a `timestamp with time zone`, a
+`uuid` or a `date` under a column declared `timestamp` or `string` is a
+mismatch. A mismatch makes `AdoptLegacy` return one error naming every
+`table.column is <held type> and the spec declares <field> as <type>`, and
+nothing is renamed, in any object, because the check runs for the whole spec
+first. The operator retypes the columns by hand (`alter table ... alter column
+... type ... using ...`) and adopts again.
+
+- **It refuses; it does not convert.** Coercing rewrites live data on a working
+  database and changes the engine's contract for every adopting repo, which is
+  the owner's decision and was not taken on 2026-10-01. The refusal is the
+  smaller change and fails in the safer direction.
+- **Only an adoption in progress is checked.** A table already on its declared
+  name is never examined, so a database adopted before this check, such as
+  wakala-api's with its `timestamptz` columns, keeps booting; the helpers above
+  keep covering it.
+- **SQLite is not checked.** It is dynamically typed, so a differing declared
+  type is harmless there and a check would only refuse tests that work.
+- The comparison is unit-tested as a pure function (`adoptionTypeProblems`);
+  the Postgres-backed test is in `postgres_schema_integration_test.go` behind
+  the `postgres` tag and `POSTGRES_URL`, and has been compiled but not run.
+
 ## The store
 
 `specstore.New(db, spec, carriers)` takes a map of role to a zero value of

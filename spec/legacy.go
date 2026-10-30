@@ -79,6 +79,9 @@ func AdoptedWith(db *gorm.DB, s *Spec, l Legacy) (bool, error) {
 }
 
 func AdoptLegacy(db *gorm.DB, s *Spec, l Legacy) error {
+	if err := checkAdoptedColumnTypes(db, s, l); err != nil {
+		return err
+	}
 	m := db.Migrator()
 	for _, o := range s.Objects {
 		declared := s.TableFor(o)
