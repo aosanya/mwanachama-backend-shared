@@ -25,6 +25,8 @@ type Store struct {
 
 	runID string
 
+	listCap int
+
 	mu    sync.RWMutex
 	unset map[string]string
 }
@@ -166,18 +168,23 @@ func (st *Store) Insert(ctx context.Context, role string, v any) error {
 
 const DefaultListCap = 100
 
-func cappedQuery(q *gorm.DB) *gorm.DB {
+func (st *Store) CapLists(n int) { st.listCap = n }
+
+func (st *Store) cappedQuery(q *gorm.DB) *gorm.DB {
+	if st.listCap <= 0 {
+		return q
+	}
 	if c, ok := q.Statement.Clauses["LIMIT"]; ok {
 		if l, ok := c.Expression.(clause.Limit); ok && l.Limit != nil {
 			return q
 		}
 	}
-	return q.Session(&gorm.Session{}).Limit(DefaultListCap)
+	return q.Session(&gorm.Session{}).Limit(st.listCap)
 }
 
 func List[T any](st *Store, q *gorm.DB, role string) ([]T, error) {
 	var rows []map[string]any
-	if err := cappedQuery(q).Find(&rows).Error; err != nil {
+	if err := st.cappedQuery(q).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	o := st.Object(role)

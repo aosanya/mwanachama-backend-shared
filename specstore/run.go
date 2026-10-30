@@ -17,7 +17,7 @@ func (st *Store) ForRun(runID string) (*Store, error) {
 	if runID == "" {
 		return nil, ErrRunIDEmpty
 	}
-	scoped := &Store{db: st.db, spec: st.spec, objects: st.objects, runID: runID}
+	scoped := &Store{db: st.db, spec: st.spec, objects: st.objects, runID: runID, listCap: st.listCap}
 	return scoped, nil
 }
 

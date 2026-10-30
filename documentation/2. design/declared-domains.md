@@ -631,13 +631,17 @@ SQL NULL, so a column never written stays distinguishable from one holding
 The rest is four wrappers every converted repo would otherwise rewrite:
 `Query(ctx, role)` starts a query against the role's table, `Take` reads at
 most one row and answers the caller's own not-found sentinel, `List[T]` reads
-many, and `Insert` writes one. `List[T]` returns at most `DefaultListCap`
-(100) rows when the query it is handed carries no `LIMIT` (S24: a caller who
-named none used to get the whole table); a query with its own `.Limit(n)`
-keeps it, `.Limit(-1)` opts out for the lookup that must see every row, and
-the cap is applied to a session of the query so the caller's own `*gorm.DB`
-is not left limited. A caller that needs completeness rather than a page must
-say so, because a capped list does not signal that it was cut. `NewID` mints a storage key — the row structs
+many, and `Insert` writes one. `List[T]` is uncapped until a store opts in with `CapLists(n)` (a run-scoped
+store inherits it). Once it has, a query that carries no `LIMIT` returns at
+most `n` rows, `DefaultListCap` (100) being the value to pass (S24: a caller
+who named no limit used to get the whole table); a query with its own
+`.Limit(k)` keeps it, `.Limit(-1)` opts out for the lookup that must see every
+row, and the cap goes on a session of the query so the caller's own
+`*gorm.DB` is not left limited. Opt-in is deliberate: `List[T]` also serves internal lookups and sweeps,
+and a capped list does not signal that it was cut, so a default cap broke
+taskmanager's repeating-task sweep (100 of 502 read) and agency's AG54 and
+AG76 fixtures. A host turns the cap on after its internal readers say
+`.Limit(-1)`. `NewID` mints a storage key — the row structs
 minted theirs in a GORM `BeforeCreate` hook, which a map-shaped write never
 reaches.
 

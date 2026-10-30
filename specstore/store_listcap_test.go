@@ -7,8 +7,9 @@ import (
 	"github.com/aosanya/mwanachama-backend-shared/specstore"
 )
 
-func TestS24_OpenBug_ListHasNoDefaultCap(t *testing.T) {
+func TestS24_ListCappedByDefaultOnceAStoreOptsIn(t *testing.T) {
 	st, _ := newStore(t)
+	st.CapLists(specstore.DefaultListCap)
 	ctx := context.Background()
 
 	const seeded = 150
@@ -23,7 +24,7 @@ func TestS24_OpenBug_ListHasNoDefaultCap(t *testing.T) {
 		t.Fatalf("list: %v", err)
 	}
 	if len(got) >= seeded {
-		t.Fatalf("S24 open bug: List() on a query with no Limit returned all %d seeded rows; a caller who names no limit should get a capped default page from the engine itself, not the whole live table — every module built on this engine (agency, permissions, catalog) inherits this by construction unless it remembers to call .Limit() on every query it hands in", len(got))
+		t.Fatalf("S24: a capped store returned all %d seeded rows from a query with no Limit", len(got))
 	}
 }
 
@@ -38,6 +39,7 @@ func seedTickets(t *testing.T, st *specstore.Store, n int) {
 
 func TestListCapsAtTheDefaultAndNoMore(t *testing.T) {
 	st, _ := newStore(t)
+	st.CapLists(specstore.DefaultListCap)
 	seedTickets(t, st, specstore.DefaultListCap+20)
 	got, err := specstore.List[Ticket](st, st.Query(context.Background(), roleTicket), roleTicket)
 	if err != nil {
@@ -50,6 +52,7 @@ func TestListCapsAtTheDefaultAndNoMore(t *testing.T) {
 
 func TestListKeepsTheCallersOwnLimit(t *testing.T) {
 	st, _ := newStore(t)
+	st.CapLists(specstore.DefaultListCap)
 	seedTickets(t, st, specstore.DefaultListCap+20)
 	ctx := context.Background()
 	for limit, want := range map[int]int{5: 5, specstore.DefaultListCap + 10: specstore.DefaultListCap + 10, -1: specstore.DefaultListCap + 20} {
@@ -65,6 +68,7 @@ func TestListKeepsTheCallersOwnLimit(t *testing.T) {
 
 func TestListDoesNotLeakItsCapIntoTheCallersQuery(t *testing.T) {
 	st, _ := newStore(t)
+	st.CapLists(specstore.DefaultListCap)
 	seedTickets(t, st, specstore.DefaultListCap+20)
 	q := st.Query(context.Background(), roleTicket)
 	if _, err := specstore.List[Ticket](st, q, roleTicket); err != nil {
@@ -80,5 +84,31 @@ func TestListDoesNotLeakItsCapIntoTheCallersQuery(t *testing.T) {
 	var rows []map[string]any
 	if err := q.Find(&rows).Error; err != nil || len(rows) != specstore.DefaultListCap+20 {
 		t.Fatalf("Find after List = %d rows, err %v", len(rows), err)
+	}
+}
+
+func TestListIsUncappedUntilAStoreOptsIn(t *testing.T) {
+	st, _ := newStore(t)
+	seedTickets(t, st, specstore.DefaultListCap+20)
+	got, err := specstore.List[Ticket](st, st.Query(context.Background(), roleTicket), roleTicket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != specstore.DefaultListCap+20 {
+		t.Fatalf("len = %d, want %d", len(got), specstore.DefaultListCap+20)
+	}
+}
+
+func TestARunScopedStoreInheritsTheListCap(t *testing.T) {
+	st, _ := newStore(t)
+	st.CapLists(7)
+	run := forRun(t, st, "run-1")
+	seedTickets(t, run, 20)
+	got, err := specstore.List[Ticket](run, run.Query(context.Background(), roleTicket), roleTicket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 7 {
+		t.Fatalf("len = %d, want 7", len(got))
 	}
 }
