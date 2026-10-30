@@ -8,6 +8,9 @@ import (
 )
 
 func Migrate(db *gorm.DB, s *Spec) error {
+	if problems := s.defaultProblems(); len(problems) > 0 {
+		return asError("spec: migrate", problems)
+	}
 	dialect := db.Dialector.Name()
 	for _, o := range s.storedObjects() {
 		if err := migrateTable(db, s, o, dialect, false); err != nil {
@@ -141,10 +144,10 @@ func (f Field) columnType(dialect string) string {
 func (f Field) defaultClause() string {
 	switch {
 	case f.Default != "":
-		if f.Type == TypeInt || f.Type == TypeFloat || f.Type == TypeBool {
-			return "default " + f.Default
+		if literal, err := f.defaultLiteral(); err == nil {
+			return "default " + literal
 		}
-		return "default '" + strings.ReplaceAll(f.Default, "'", "''") + "'"
+		return "default " + quotedLiteral(f.Default)
 
 	// A required field with a default is a contradiction: the default is
 	// exactly what stops an omitted value being noticed. The convenience

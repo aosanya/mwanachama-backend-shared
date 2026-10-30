@@ -212,6 +212,17 @@ Two refusals are worth knowing before they surprise anyone:
   explanation would live — it is also what the MCP tool schemas read.
 - **A required field may not carry a default.** The default is exactly what
   would let an omitted value pass unnoticed.
+- **A numeric or boolean default must parse as its own type** (S55). An `int`
+  default is read with `strconv.ParseInt`, a `float` with `ParseFloat` and only
+  a finite result passes, a `bool` with `ParseBool`. `Validate` refuses anything
+  else at load, and the column then carries the parsed value rather than the
+  text, so `"+7"` becomes `default 7`, `"1e3"` becomes `default 1000` and a
+  `bool` of `"1"` becomes `default true`. A default is the one declared value
+  that reaches the DDL without an identifier alphabet to hold it, which is why
+  it is typed rather than escaped. `Migrate` repeats the check for a spec that
+  was built or edited without going through `Parse`, and `Spec.DDL`, which
+  cannot return an error, quotes such a default as a string so it never reaches
+  the statement as SQL.
 
 ## Indexes
 

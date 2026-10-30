@@ -101,6 +101,7 @@ func (s *Spec) Validate() error {
 		problems = append(problems, o.validate()...)
 	}
 	problems = append(problems, s.attachProblems()...)
+	problems = append(problems, s.defaultProblems()...)
 
 	return asError("spec", problems)
 }
