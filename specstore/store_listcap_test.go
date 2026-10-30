@@ -26,3 +26,59 @@ func TestS24_OpenBug_ListHasNoDefaultCap(t *testing.T) {
 		t.Fatalf("S24 open bug: List() on a query with no Limit returned all %d seeded rows; a caller who names no limit should get a capped default page from the engine itself, not the whole live table — every module built on this engine (agency, permissions, catalog) inherits this by construction unless it remembers to call .Limit() on every query it hands in", len(got))
 	}
 }
+
+func seedTickets(t *testing.T, st *specstore.Store, n int) {
+	t.Helper()
+	for i := 0; i < n; i++ {
+		if err := st.Insert(context.Background(), roleTicket, Ticket{ID: specstore.NewID(), RaisedBy: "amos"}); err != nil {
+			t.Fatalf("insert %d: %v", i, err)
+		}
+	}
+}
+
+func TestListCapsAtTheDefaultAndNoMore(t *testing.T) {
+	st, _ := newStore(t)
+	seedTickets(t, st, specstore.DefaultListCap+20)
+	got, err := specstore.List[Ticket](st, st.Query(context.Background(), roleTicket), roleTicket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != specstore.DefaultListCap {
+		t.Fatalf("len = %d, want %d", len(got), specstore.DefaultListCap)
+	}
+}
+
+func TestListKeepsTheCallersOwnLimit(t *testing.T) {
+	st, _ := newStore(t)
+	seedTickets(t, st, specstore.DefaultListCap+20)
+	ctx := context.Background()
+	for limit, want := range map[int]int{5: 5, specstore.DefaultListCap + 10: specstore.DefaultListCap + 10, -1: specstore.DefaultListCap + 20} {
+		got, err := specstore.List[Ticket](st, st.Query(ctx, roleTicket).Limit(limit), roleTicket)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != want {
+			t.Errorf("Limit(%d): len = %d, want %d", limit, len(got), want)
+		}
+	}
+}
+
+func TestListDoesNotLeakItsCapIntoTheCallersQuery(t *testing.T) {
+	st, _ := newStore(t)
+	seedTickets(t, st, specstore.DefaultListCap+20)
+	q := st.Query(context.Background(), roleTicket)
+	if _, err := specstore.List[Ticket](st, q, roleTicket); err != nil {
+		t.Fatal(err)
+	}
+	var n int64
+	if err := q.Count(&n).Error; err != nil {
+		t.Fatal(err)
+	}
+	if n != int64(specstore.DefaultListCap+20) {
+		t.Fatalf("count after List = %d, want %d", n, specstore.DefaultListCap+20)
+	}
+	var rows []map[string]any
+	if err := q.Find(&rows).Error; err != nil || len(rows) != specstore.DefaultListCap+20 {
+		t.Fatalf("Find after List = %d rows, err %v", len(rows), err)
+	}
+}

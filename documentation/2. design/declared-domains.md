@@ -563,7 +563,13 @@ SQL NULL, so a column never written stays distinguishable from one holding
 The rest is four wrappers every converted repo would otherwise rewrite:
 `Query(ctx, role)` starts a query against the role's table, `Take` reads at
 most one row and answers the caller's own not-found sentinel, `List[T]` reads
-many, and `Insert` writes one. `NewID` mints a storage key — the row structs
+many, and `Insert` writes one. `List[T]` returns at most `DefaultListCap`
+(100) rows when the query it is handed carries no `LIMIT` (S24: a caller who
+named none used to get the whole table); a query with its own `.Limit(n)`
+keeps it, `.Limit(-1)` opts out for the lookup that must see every row, and
+the cap is applied to a session of the query so the caller's own `*gorm.DB`
+is not left limited. A caller that needs completeness rather than a page must
+say so, because a capped list does not signal that it was cut. `NewID` mints a storage key — the row structs
 minted theirs in a GORM `BeforeCreate` hook, which a map-shaped write never
 reaches.
 

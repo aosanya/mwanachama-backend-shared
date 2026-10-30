@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/aosanya/mwanachama-backend-shared/geo"
 	"github.com/aosanya/mwanachama-backend-shared/spec"
@@ -163,9 +164,20 @@ func (st *Store) Insert(ctx context.Context, role string, v any) error {
 	return st.Query(ctx, role).Create(row).Error
 }
 
+const DefaultListCap = 100
+
+func cappedQuery(q *gorm.DB) *gorm.DB {
+	if c, ok := q.Statement.Clauses["LIMIT"]; ok {
+		if l, ok := c.Expression.(clause.Limit); ok && l.Limit != nil {
+			return q
+		}
+	}
+	return q.Session(&gorm.Session{}).Limit(DefaultListCap)
+}
+
 func List[T any](st *Store, q *gorm.DB, role string) ([]T, error) {
 	var rows []map[string]any
-	if err := q.Find(&rows).Error; err != nil {
+	if err := cappedQuery(q).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	o := st.Object(role)
