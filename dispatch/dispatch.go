@@ -63,6 +63,7 @@ func Dispatch(s *Spec, d Deps) ([]Route, error) {
 	}
 
 	var out []Route
+	var built []Operation
 	var problems []string
 	for _, name := range sortedKeys(s.Operations) {
 		op := s.Operations[name]
@@ -79,6 +80,7 @@ func Dispatch(s *Spec, d Deps) ([]Route, error) {
 			problems = append(problems, err.Error())
 			continue
 		}
+		built = append(built, op)
 		out = append(out, Route{
 			Method:  op.Method,
 			Path:    s.Base + op.Path,
@@ -90,7 +92,7 @@ func Dispatch(s *Spec, d Deps) ([]Route, error) {
 		sort.Strings(problems)
 		return nil, fmt.Errorf("dispatch: %s", strings.Join(problems, "; "))
 	}
-	return out, nil
+	return mergeAlternatives(out, built), nil
 }
 
 func statusTable(s *Spec, d Deps) (map[error]int, error) {
@@ -173,12 +175,12 @@ func handlerFor(op Operation, method reflect.Value, table map[error]int, fallbac
 		results := method.Call(append([]reflect.Value{reflect.ValueOf(ctx)}, args...))
 		if last := results[len(results)-1]; !last.IsNil() {
 			callErr := last.Interface().(error)
-			code := httpwire.StatusFor(callErr, table, fallback)
-			if code == fallback {
-				httpwire.WriteErr(w, code, opaque)
+			answer := resolve(callErr, table, fallback)
+			if answer.code == fallback {
+				httpwire.WriteErr(w, answer.code, opaque)
 				return
 			}
-			httpwire.WriteErr(w, code, callErr.Error())
+			httpwire.WriteJSON(w, answer.code, answer.body(callErr.Error()))
 			return
 		}
 

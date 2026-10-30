@@ -8,8 +8,6 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-
-	"github.com/aosanya/mwanachama-backend-shared/httpwire"
 )
 
 type FieldDoc struct {
@@ -176,7 +174,7 @@ func invokerFor(op Operation, plan []slot, props []property, method reflect.Valu
 		results := method.Call(append([]reflect.Value{reflect.ValueOf(ctx)}, args...))
 		if last := results[len(results)-1]; !last.IsNil() {
 			callErr := last.Interface().(error)
-			if httpwire.StatusFor(callErr, table, fallback) == fallback {
+			if resolve(callErr, table, fallback).code == fallback {
 				return nil, errors.New(opaque)
 			}
 			return nil, callErr

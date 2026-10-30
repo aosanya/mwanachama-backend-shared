@@ -58,6 +58,7 @@ type Return struct {
 type Operation struct {
 	Method      string   `json:"method"`
 	Path        string   `json:"path"`
+	WhenQuery   string   `json:"whenQuery,omitempty"`
 	Call        string   `json:"call"`
 	Handled     bool     `json:"handled,omitempty"`
 	Action      string   `json:"action"`
@@ -152,7 +153,14 @@ func (s *Spec) Validate() error {
 		}
 
 		address := op.Method + " " + op.Path
-		if first, taken := seenAddress[address]; taken {
+		if op.WhenQuery != "" {
+			if !NamePattern.MatchString(op.WhenQuery) {
+				add("operation %q: whenQuery %q is not a usable query parameter name", name, op.WhenQuery)
+			}
+			if op.Handled {
+				add("operation %q is selected by ?%s but the module handles it; a selected alternative is dispatched", name, op.WhenQuery)
+			}
+		} else if first, taken := seenAddress[address]; taken {
 			add("operations %q and %q both answer %q", first, name, address)
 		} else {
 			seenAddress[address] = name
@@ -174,6 +182,8 @@ func (s *Spec) Validate() error {
 			}
 		}
 	}
+
+	problems = append(problems, s.checkAlternatives()...)
 
 	if len(problems) > 0 {
 		sort.Strings(problems)
