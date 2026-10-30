@@ -87,7 +87,7 @@ serve it*. A public action skips the authorizer because it never had one.
 `ListEntries(ctx, ListFilter)` — not loose scalars. A whole body decodes with
 `DisallowUnknownFields`, so a misspelled field is a 400 rather than a silently
 dropped value. A whole query assembles a struct from query parameters by
-`query:"..."` tag, falling back to the lowercased field name, and `query:"-"`
+`query:"..."` tag, falling back to the field name in snake_case (`RoleCode` is `role_code`, spelled as `specstore.ColumnName` spells it, pinned equal by test), and `query:"-"`
 makes a field unbindable.
 
 **`into` is a security rule, not a convenience.** The hand-written handler it
@@ -201,12 +201,12 @@ domain-agnostic module may not carry an agency's words, and
 **A tool's name may be declared.** It is derived from the action by default
 (`x.entry.open` becomes `x_entry_open`), which suits a surface nobody calls
 yet. A module converting a hand-written one has names its callers hardcode,
-so `"tool": "agency_create_goal"` keeps them. Two operations declaring one
-name is refused at load, but an operation declaring the name another one
-derives from its action is not: the 2026-10-12 security sweep gave `forget`
-`"tool": "t_note_read"` and `Tools` published two tools named `t_note_read`,
-one deleting. That is S63, open, red in
-`dispatch/tool_name_collision_security_test.go`. Renaming a tool is a breaking change, and it should
+so `"tool": "agency_create_goal"` keeps them. Two operations publishing one
+name is refused at load, whether both declare it or one declares what the
+other derives from its action (S63: `forget` once carried `"tool": "t_note_read"`
+beside `read` and `Tools` published two tools under that name, one deleting;
+`Validate` now checks the derived name of every operation that publishes a
+tool). Renaming a tool is a breaking change, and it should
 not happen as a side effect of a derivation rule.
 
 **It does not depend on the MCP SDK.** A `Tool` carries `InputSchema` as

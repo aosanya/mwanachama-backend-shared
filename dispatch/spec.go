@@ -140,13 +140,14 @@ func (s *Spec) Validate() error {
 
 		if op.NoTool && op.Tool != "" {
 			add("operation %q both opts out of the tool surface and publishes the tool %q; it is one or the other", name, op.Tool)
-		} else if op.Tool != "" {
-			if !NamePattern.MatchString(op.Tool) {
-				add("operation %q: tool name %q is not a usable name", name, op.Tool)
-			} else if first, taken := seenTool[op.Tool]; taken {
-				add("operations %q and %q both publish the tool %q", first, name, op.Tool)
+		} else if op.Tool != "" && !NamePattern.MatchString(op.Tool) {
+			add("operation %q: tool name %q is not a usable name", name, op.Tool)
+		} else if op.Tool != "" || (!op.Handled && !op.NoTool && op.Action != "") {
+			published := publishedName(op)
+			if first, taken := seenTool[published]; taken {
+				add("operations %q and %q both publish the tool %q", first, name, published)
 			} else {
-				seenTool[op.Tool] = name
+				seenTool[published] = name
 			}
 		}
 
