@@ -139,7 +139,29 @@ func queryKey(f reflect.StructField) string {
 		}
 		return strings.Split(tag, ",")[0]
 	}
-	return strings.ToLower(f.Name)
+	return snakeCase(f.Name)
+}
+
+func snakeCase(field string) string {
+	var b strings.Builder
+	runes := []rune(field)
+	for i, r := range runes {
+		upper := r >= 'A' && r <= 'Z'
+		if upper && i > 0 {
+			prevLower := runes[i-1] >= 'a' && runes[i-1] <= 'z' || runes[i-1] >= '0' && runes[i-1] <= '9'
+			plural := i+2 == len(runes) && runes[i+1] == 's'
+			nextLower := i+1 < len(runes) && runes[i+1] >= 'a' && runes[i+1] <= 'z' && !plural
+			if prevLower || nextLower {
+				b.WriteByte('_')
+			}
+		}
+		if upper {
+			b.WriteRune(r - 'A' + 'a')
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 func paramType(t reflect.Type, i int) (reflect.Type, bool, error) {
