@@ -624,8 +624,9 @@ The raw's shape is this package's, not the owner's. `Parse` holds the first
 two segments to `SegmentPattern` — the same alphabet as `spec.SegmentPattern`,
 restated rather than imported so a consumer that only relates things does
 not pull in the storage engine, and pinned equal by test — and the identity
-to any non-empty UTF-8 with no control character and no leading or trailing
-whitespace. Slashes inside the identity are allowed and the split is on the
+to any non-empty UTF-8 with no control character, no format character
+(bidi overrides, zero-width characters, the byte-order mark, the soft hyphen),
+no line or paragraph separator, and no leading or trailing whitespace. Slashes inside the identity are allowed and the split is on the
 first two only, because git's identity is a path. `New` builds one from its
 parts under the same checks, and `Raw.String` is the one spelling.
 
@@ -702,8 +703,8 @@ named. Four choices are worth knowing:
 - **`Check` holds the shape**: the partition and the owner to
   `SegmentPattern` (a partition is the tenant segment a raw's instance
   names), each object to `ObjectPattern`, each id to the same rule a raw's
-  identity follows — non-empty UTF-8, no control character, no edge
-  whitespace, slashes allowed. A reactor calls it first; nothing here
+  identity follows — non-empty UTF-8, no control, format, line or paragraph
+  separator character, no edge whitespace, slashes allowed. A reactor calls it first; nothing here
   resolves or reads the objects.
 
 What it does not do: it names no reacting module and no event. Which events a

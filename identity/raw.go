@@ -65,6 +65,9 @@ func checkIdentity(identity string) error {
 		if unicode.IsControl(c) {
 			return fmt.Errorf("the identity carries the control character %U", c)
 		}
+		if unicode.In(c, unicode.Cf, unicode.Zl, unicode.Zp) {
+			return fmt.Errorf("the identity carries the invisible or line-breaking character %U", c)
+		}
 	}
 	return nil
 }
