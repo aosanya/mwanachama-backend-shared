@@ -149,11 +149,6 @@ func (f Field) defaultClause() string {
 		}
 		return "default " + quotedLiteral(f.Default)
 
-	// A required field with a default is a contradiction: the default is
-	// exactly what stops an omitted value being noticed. The convenience
-	// defaults below are for optional columns only. A nullable column is
-	// excluded for the opposite reason: a default is what would stop NULL
-	// ever being stored, which is the whole point of declaring it nullable.
 	case f.Required, f.Primary, f.Nullable, f.Type == TypeJSON, f.Type == TypeGeometry:
 		return ""
 	case f.Type == TypeInt, f.Type == TypeFloat:

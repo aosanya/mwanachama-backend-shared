@@ -400,10 +400,11 @@ table](#a-test-copy-beside-every-table)), idempotently. There is no `AutoMigrate
 is what lets a spec be reviewed as SQL before it touches a database, and what
 lets a test assert on the statements rather than on their effects.
 
-`Migrate` evolves a table that already exists, additively and nothing else.
+`Migrate` evolves a table that already exists, additively, with one relaxation.
 What it does **not** do is drop, rename or retype anything: a column that stops
-being declared stays in the database, and a retirement is a migration the
-module writes itself.
+being declared stays in the database with its data, and a retirement is a
+migration the module writes itself. The one thing it does to such a column is
+let go of its `not null` (see below).
 
 ### A table that already exists gains the columns it lacks
 
@@ -472,12 +473,40 @@ because the table may already hold rows:
   owner, and the one place to change it is the `evolveTable` call to
   `alterObject`.
 
+### A column that stops being declared stops blocking writes (S53)
+
+A `required` field is `not null` with no default, so once it is removed from
+the blueprint its orphan column made every later insert fail with a raw driver
+error, including inserts that named every column still declared. After the
+additions, `Migrate` now reads the table's columns that are `not null`, have no
+default, are not part of the primary key and are not declared (the test copy's
+`run_id` counts as declared), and relaxes the constraint on each. The data stays.
+
+- **Postgres** runs `alter table <table> alter column "<column>" drop not null`
+  per orphan, in one transaction. Identity and generated columns are left alone.
+- **SQLite** cannot alter a column's nullability, so the table is rebuilt in one
+  transaction: a scratch table with the same columns, types, defaults, primary
+  key and `unique` constraints, the rows copied across, the old table dropped,
+  the scratch renamed, and the table's explicit indexes re-created from their
+  stored SQL. An `autoincrement` marker on a legacy key is not carried over.
+- A dropped column that was nullable, or `not null` with a default, is not
+  touched, and a second `Migrate` finds nothing to do, so a table is never
+  rebuilt twice.
+- The same pass reaches the orphan columns of an adopted legacy table, so a
+  hand-written `not null` column the blueprint never declared is relaxed too.
+  The alternative, dropping the column, was rejected because it destroys data
+  on a live database; whether a retired column should one day be dropped is the
+  owner's call.
+- The Postgres path is unit-tested only as text (`relaxStatements`); this
+  repo's Postgres tests skip without `POSTGRES_URL`, and the column-read query
+  has not run against a live Postgres.
+
 Limits, all deliberate:
 
 - It is **additive only**. A rename, a type change and a removal are manual:
   a renamed field is a new column plus a copy, an existing column is never
-  altered, and a column that stops being declared stays (S53 records that a
-  dropped required field leaves a `not null` column that blocks every insert).
+  altered, and a column that stops being declared stays, though no longer
+  `not null` (S53, above).
 - It looks at column **names** only. A column of the wrong type or nullability
   is not noticed, and an adopted table still keeps its own column types.
 - Running it twice is a no-op: the second run finds every column.

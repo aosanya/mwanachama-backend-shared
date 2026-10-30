@@ -106,17 +106,23 @@ func evolveTable(db *gorm.DB, s *Spec, o Object, dialect string, test bool) erro
 		return err
 	}
 	stmts, _, err := s.alterObject(o, dialect, held, test)
-	if err != nil || len(stmts) == 0 {
+	if err != nil {
 		return err
 	}
-	return db.Transaction(func(tx *gorm.DB) error {
-		for _, stmt := range stmts {
-			if err := tx.Exec(stmt).Error; err != nil {
-				return fmt.Errorf("spec: migrate: %w\n  in: %s", err, stmt)
+	if len(stmts) > 0 {
+		err = db.Transaction(func(tx *gorm.DB) error {
+			for _, stmt := range stmts {
+				if err := tx.Exec(stmt).Error; err != nil {
+					return fmt.Errorf("spec: migrate: %w\n  in: %s", err, stmt)
+				}
 			}
+			return nil
+		})
+		if err != nil {
+			return err
 		}
-		return nil
-	})
+	}
+	return relaxOrphanColumns(db, table, declaredColumns(o, test))
 }
 
 func columnNames(db *gorm.DB, table string) ([]string, error) {
