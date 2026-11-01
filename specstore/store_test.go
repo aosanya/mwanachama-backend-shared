@@ -251,3 +251,20 @@ func TestTableComesFromTheSpec(t *testing.T) {
 		t.Errorf("RawNameFor = %q", got)
 	}
 }
+
+func TestInsertOnceLeavesAnExistingRowAloneAndRaisesNothing(t *testing.T) {
+	st, _ := newStore(t)
+	ctx := context.Background()
+	if err := st.InsertOnce(ctx, roleTicket, Ticket{ID: "t1", RaisedBy: "first"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := st.InsertOnce(ctx, roleTicket, Ticket{ID: "t1", RaisedBy: "second"}); err != nil {
+		t.Fatalf("second insert = %v, want none", err)
+	}
+
+	var got Ticket
+	if err := st.Take(st.Query(ctx, roleTicket).Where("id = ?", "t1"), roleTicket, &got, errNoTicket); err != nil || got.RaisedBy != "first" {
+		t.Fatalf("ticket = %+v, %v; want the first row kept", got, err)
+	}
+}

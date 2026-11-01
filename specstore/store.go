@@ -166,6 +166,14 @@ func (st *Store) Insert(ctx context.Context, role string, v any) error {
 	return st.Query(ctx, role).Create(row).Error
 }
 
+func (st *Store) InsertOnce(ctx context.Context, role string, v any) error {
+	row, err := st.Row(role, v)
+	if err != nil {
+		return err
+	}
+	return st.Query(ctx, role).Clauses(clause.OnConflict{DoNothing: true}).Create(row).Error
+}
+
 const DefaultListCap = 100
 
 func (st *Store) CapLists(n int) { st.listCap = n }
