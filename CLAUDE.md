@@ -67,6 +67,7 @@ hand-rolled HTML views share one visual design system
 (`mwanachama-wakala-studio`'s look: IBM Plex Sans/Mono + Big Shoulders
 Display, warm ochre accent, sharp corners, hairline borders) instead of
 each repo hand-copying and drifting from its own snapshot of the palette.
+The tokens read the MCP Apps host's own `--color-*` and `--font-sans` variables first (set from `ui/initialize`'s `hostContext.styles.variables`) and fall back to the Studio palette. The stylesheet follows the owner's font rule: `font-size:112.5%` on `:root` once, every other size in `rem`, controls `font:inherit`.
 `mwanachama-backend-agency/mcp/dashboard_ui.go` is the first, reference
 consumer — see that repo's CLAUDE.md (AG17) for the full record. Depend on
 this module the same way `mwanachama-backend-actor` already does: a

@@ -1,15 +1,7 @@
-/* Shared visual design system for hand-rolled MCP Apps (SEP-1865) dashboard
-   Views across this workspace's backend repos. Mirrors
-   mwanachama-wakala-studio's design system (app/app.css) so every dashboard
-   renders with the same feel as the Studio web app: IBM Plex Sans/Mono +
-   Big Shoulders Display, a warm ochre accent, sharp 2-3px corners, and
-   hairline borders instead of shadows.
-
-   Layered on top of the MCP Apps host's own --color-*/
---font-sans variables (set via ui/initialize's hostContext.styles.variables) where
- present, falling back to the wakala-studio palette otherwise. */ @import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
   :root {
+    font-size: 112.5%;
     color-scheme: light dark;
     --bg: var(--color-background-primary, #EDF0EC);
     --surface: #FBFCFA;
@@ -55,8 +47,8 @@
     color: var(--ink);
   }
 
-  a, button, input, select, textarea {
-    font-family: inherit;
+  button, input, select, textarea {
+    font: inherit;
   }
 
   a:focus-visible, button:focus-visible, input:focus-visible,
@@ -71,16 +63,16 @@
   }
 
   h1 {
-    font-size: 20px;
+    font-size: 1.25rem;
   }
 
   .eyebrow {
-    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em;
+    font-family: var(--font-mono); font-size: .6875rem; letter-spacing: 0.08em;
     text-transform: uppercase; color: var(--ink-soft); margin: 0 0 16px;
   }
 
   .back {
-    display: inline-block; margin-bottom: 12px; font-size: 13px;
+    display: inline-block; margin-bottom: 12px; font-size: .8125rem;
     cursor: pointer; color: var(--accent); font-weight: 500;
   }
 
@@ -95,7 +87,7 @@
   .tile {
     padding: 16px; border-radius: 3px; border: 1px solid var(--line-strong);
     background: var(--surface); color: var(--ink);
-    cursor: pointer; font-weight: 600; font-size: 14px;
+    cursor: pointer; font-weight: 600; font-size: .875rem;
   }
 
   .tile:hover {
@@ -113,7 +105,7 @@
   button {
     padding: 11px 20px; border-radius: 3px; border: 1px solid var(--accent);
     background: var(--accent); color: var(--on-accent);
-    cursor: pointer; font-weight: 600; font-size: 0.8rem; ;
+    cursor: pointer; font-weight: 600;
   }
 
   button:hover {
@@ -130,7 +122,7 @@
   }
 
   input, select, textarea {
-    font-size: 0.88rem; color: var(--ink); background: var(--bg);
+    color: var(--ink); background: var(--bg);
     border: 1px solid var(--line-strong); border-radius: 2px; padding: 11px 12px;
   }
 
@@ -157,7 +149,7 @@
   }
 
   dl {
-    font-size: 14px;
+    font-size: .875rem;
   }
 
   dt {
@@ -170,7 +162,7 @@
   }
 
   .empty {
-    color: var(--ink-soft); font-size: 13px;
+    color: var(--ink-soft); font-size: .8125rem;
   }
 
   .section {
