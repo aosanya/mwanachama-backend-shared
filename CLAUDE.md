@@ -4,9 +4,12 @@ Guidance for Claude Code working in this repository.
 
 ## Project: mwanachama-backend-shared
 
-The shared Postgres entity-graph engine underneath
+The Go module every mwanachama backend repo builds on; the package list is in
+[README.md](README.md). Its first role is the shared Postgres entity-graph
+engine, which no module outside this repo imports any more:
 [mwanachama-backend-git](../mwanachama-backend-git) and
-[mwanachama-backend-taskmanager](../mwanachama-backend-taskmanager). Module path
+[mwanachama-backend-taskmanager](../mwanachama-backend-taskmanager) now reach
+only `postgres.Open`, from their integration tests. Module path
 `github.com/aosanya/mwanachama-backend-shared`.
 
 Ported from `CodeValdSharedLib/entitygraph` (an ArangoDB-backed generic
