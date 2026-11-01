@@ -59,7 +59,7 @@
 `mwanachama-backend-shared` — Go library, module `github.com/aosanya/mwanachama-backend-shared`.
 No audience of its own; a dependency of [mwanachama-backend-git](../../../mwanachama-backend-git)
 and [mwanachama-backend-taskmanager](../../../mwanachama-backend-taskmanager), which are in turn
-wired into [mwanachama-backend-api-gateway](../../../mwanachama-backend-api-gateway) for
+wired into mwanachama-backend-api-gateway for
 [mwanachama-frontend-kazi](../../../mwanachama-frontend-kazi).
 
 ### Why this repo exists

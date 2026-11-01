@@ -31,7 +31,7 @@ repos, which are out of scope for a Go shared library.
 | [taskmanager](../../../mwanachama-backend-taskmanager) | entitygraph (this repo) | none — library only | not started |
 | [accounting](../../../mwanachama-backend-accounting) | entitygraph (this repo) | none — library only | not started |
 | [digitaltwin](../../../mwanachama-backend-digitaltwin) | entitygraph (registry) + raw SQL (telemetry sidecar) | none — blocked on a capability-model decision | not started, one deliberate exception (telemetry bypasses entitygraph on purpose — see its CLAUDE.md) |
-| [api-gateway](../../../mwanachama-backend-api-gateway) | raw `database/sql`/pgx (own store) + entitygraph (mid-retirement) + imports actor's and forms' GORM packages as libraries | `internal/api/http` — the origin of the wire-helper shape every GORM repo copied | n/a — the mounting process, not a domain repo |
+| api-gateway | raw `database/sql`/pgx (own store) + entitygraph (mid-retirement) + imports actor's and forms' GORM packages as libraries | `internal/api/http` — the origin of the wire-helper shape every GORM repo copied | n/a — the mounting process, not a domain repo |
 
 Two things worth naming up front:
 

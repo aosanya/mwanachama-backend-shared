@@ -32,4 +32,4 @@ without duplicating the entity-graph engine in each.
 Standalone by design — no dependency on `CodeValdSharedLib` (unpublished,
 private) and no gRPC/proto/sub-service shape. Plain Go packages, imported
 directly by `mwanachama-backend-git`, `mwanachama-backend-taskmanager`, and ultimately
-[mwanachama-backend-api-gateway](../../mwanachama-backend-api-gateway).
+mwanachama-backend-api-gateway.
