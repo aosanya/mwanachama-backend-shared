@@ -41,6 +41,16 @@ cannot be mounted safely passes it green. Raised by the session wiring
 wakala-api, 2026-09-23, and it is a gap in W14's stated acceptance criterion
 rather than only in an implementation.
 
+**A shared address is public only when every alternative is.** Operations that
+share a method and path and differ by `whenQuery` are merged into one route
+that carries the default operation's `Action`, and the actions of the other
+alternatives in `Alternatives`. `Anonymous` serves such a route without a
+caller only when its `Action` and every one of its `Alternatives` are on the
+allowlist, so listing the default publicly never opens an alternative that was
+not named. A route left in the gated half still asks the authorizer for the
+alternative's own action when the query selects it. `TestASharedAddressIsAnonymousOnlyWhenEveryAlternativeIs` and
+`TestAGatedSharedAddressStillAsksTheAuthorizerForTheAlternative` pin both.
+
 `Unmatched` exists because the other half of that failure is silent: misspell
 an action in an allowlist and the endpoint you meant to publish simply stays
 gated. A mount should fail its own startup on a non-empty `Unmatched`.

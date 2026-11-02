@@ -15,13 +15,22 @@ func Anonymous(routes []Route, actions ...string) Split {
 
 	var split Split
 	for _, r := range routes {
-		if r.Action != "" && allowed[r.Action] {
+		if r.Action != "" && allowed[r.Action] && allAllowed(allowed, r.Alternatives) {
 			split.Anonymous = append(split.Anonymous, r)
 			continue
 		}
 		split.Gated = append(split.Gated, r)
 	}
 	return split
+}
+
+func allAllowed(allowed map[string]bool, actions []string) bool {
+	for _, a := range actions {
+		if !allowed[a] {
+			return false
+		}
+	}
+	return true
 }
 
 func (s Split) Unmatched(routes []Route, actions []string) []string {

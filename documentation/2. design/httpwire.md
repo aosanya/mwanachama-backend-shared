@@ -34,8 +34,15 @@ type Route struct {
     Path    string
     Handler http.HandlerFunc
     Action  string
+
+    Alternatives []string
 }
 ```
+
+`Alternatives` is empty on every route except one that stands for several
+operations at a shared address; it holds the actions of the operations beside
+the one `Action` names, and `dispatch.Anonymous` reads it (see
+[dispatcher.md](dispatcher.md#deny-by-default-twice)).
 
 ### `Action`
 

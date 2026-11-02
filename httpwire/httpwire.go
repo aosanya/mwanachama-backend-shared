@@ -61,6 +61,8 @@ type Route struct {
 	Path    string
 	Handler http.HandlerFunc
 	Action  string
+
+	Alternatives []string
 }
 
 func (r Route) Pattern(prefix string) string {

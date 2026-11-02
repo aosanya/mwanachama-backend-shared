@@ -78,6 +78,14 @@ func selecting(def alternative, others []alternative) http.HandlerFunc {
 	}
 }
 
+func actionsOf(alts []alternative) []string {
+	actions := make([]string, 0, len(alts))
+	for _, alt := range alts {
+		actions = append(actions, alt.op.Action)
+	}
+	return actions
+}
+
 func mergeAlternatives(routes []Route, ops []Operation) []Route {
 	groups := map[string][]alternative{}
 	for i, op := range routes {
@@ -107,10 +115,11 @@ func mergeAlternatives(routes []Route, ops []Operation) []Route {
 			}
 		}
 		out = append(out, Route{
-			Method:  def.op.Method,
-			Path:    route.Path,
-			Action:  def.op.Action,
-			Handler: selecting(def, others),
+			Method:       def.op.Method,
+			Path:         route.Path,
+			Action:       def.op.Action,
+			Alternatives: actionsOf(others),
+			Handler:      selecting(def, others),
 		})
 	}
 	return out
