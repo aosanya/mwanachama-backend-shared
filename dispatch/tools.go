@@ -157,12 +157,12 @@ func invokerFor(op Operation, plan []slot, props []property, method reflect.Valu
 		}
 		for key := range in {
 			if !known[key] {
-				return nil, fmt.Errorf("%s takes no argument %q", toolName(op.Action), key)
+				return nil, fmt.Errorf("%s takes no argument %q", publishedName(op), key)
 			}
 		}
 		for key := range required {
 			if required[key] && len(in[key]) == 0 {
-				return nil, fmt.Errorf("%s needs %q", toolName(op.Action), key)
+				return nil, fmt.Errorf("%s needs %q", publishedName(op), key)
 			}
 		}
 
