@@ -20,16 +20,15 @@ func arguments(raw json.RawMessage) (map[string]json.RawMessage, error) {
 	}
 	return in, nil
 }
-
-func fromSession(a Arg) bool { return a.From == FromCaller || a.From == FromDevice }
-
+func fromSession(a Arg) bool {
+	return a.From == FromCaller || a.From == FromDevice
+}
 func sessionOf(a Arg, caller, device Caller) Caller {
 	if a.From == FromDevice {
 		return device
 	}
 	return caller
 }
-
 func bindTool(ctx context.Context, op Operation, plan []slot, in map[string]json.RawMessage, caller, device Caller) ([]reflect.Value, error) {
 	out := make([]reflect.Value, 0, len(plan))
 	whole := -1
@@ -65,7 +64,6 @@ func bindTool(ctx context.Context, op Operation, plan []slot, in map[string]json
 		}
 		out = append(out, v)
 	}
-
 	if whole >= 0 {
 		if err := overwriteFromArgs(ctx, op, out[whole], in, caller, device); err != nil {
 			return nil, err
@@ -73,7 +71,6 @@ func bindTool(ctx context.Context, op Operation, plan []slot, in map[string]json
 	}
 	return out, nil
 }
-
 func wholeFromArgs(op Operation, sl slot, in map[string]json.RawMessage) (reflect.Value, error) {
 	if sl.typ.Kind() != reflect.Struct {
 		return valueFromArgs(sl.typ, in[sl.arg.As], sl.arg.As)
@@ -101,11 +98,10 @@ func wholeFromArgs(op Operation, sl slot, in map[string]json.RawMessage) (reflec
 	}
 	v := reflect.New(sl.typ)
 	if err := json.Unmarshal(encoded, v.Interface()); err != nil {
-		return reflect.Value{}, fmt.Errorf("the arguments are not a valid %s: %v", sl.typ, err)
+		return reflect.Value{}, describeDecodeError(err, "")
 	}
 	return v.Elem(), nil
 }
-
 func spreadFromArgs(sl slot, in map[string]json.RawMessage) ([]reflect.Value, error) {
 	raw, ok := in[sl.arg.As]
 	if !ok {
@@ -125,7 +121,6 @@ func spreadFromArgs(sl slot, in map[string]json.RawMessage) ([]reflect.Value, er
 	}
 	return out, nil
 }
-
 func listOfOne(raw json.RawMessage) ([]json.RawMessage, error) {
 	var items []json.RawMessage
 	if err := json.Unmarshal(raw, &items); err == nil {
@@ -137,7 +132,6 @@ func listOfOne(raw json.RawMessage) ([]json.RawMessage, error) {
 	}
 	return []json.RawMessage{raw}, nil
 }
-
 func overwriteFromArgs(ctx context.Context, op Operation, target reflect.Value, in map[string]json.RawMessage, caller, device Caller) error {
 	for _, a := range op.Args {
 		if a.Into == "" {
@@ -163,7 +157,6 @@ func overwriteFromArgs(ctx context.Context, op Operation, target reflect.Value, 
 	}
 	return nil
 }
-
 func valueFromArgs(want reflect.Type, raw json.RawMessage, name string) (reflect.Value, error) {
 	if len(raw) == 0 {
 		return reflect.Zero(want), nil
@@ -173,19 +166,17 @@ func valueFromArgs(want reflect.Type, raw json.RawMessage, name string) (reflect
 		if want.Kind() == reflect.Slice {
 			return oneElementSlice(want, raw, name)
 		}
-		return reflect.Value{}, fmt.Errorf("%s: %v", name, err)
+		return reflect.Value{}, describeDecodeError(err, name)
 	}
 	return v.Elem(), nil
 }
-
 func oneElementSlice(want reflect.Type, raw json.RawMessage, name string) (reflect.Value, error) {
 	element := reflect.New(want.Elem())
 	if err := json.Unmarshal(raw, element.Interface()); err != nil {
-		return reflect.Value{}, fmt.Errorf("%s: %v", name, err)
+		return reflect.Value{}, describeDecodeError(err, name)
 	}
 	return reflect.Append(reflect.MakeSlice(want, 0, 1), element.Elem()), nil
 }
-
 func rendered(op Operation, values []reflect.Value) any {
 	if len(values) == 0 {
 		return nil

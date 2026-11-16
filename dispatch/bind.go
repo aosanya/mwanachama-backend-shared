@@ -97,7 +97,7 @@ func wholeBody(want reflect.Type, r *http.Request) (reflect.Value, error) {
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v.Interface()); err != nil {
-		return reflect.Value{}, fmt.Errorf("the request body is not a valid %s: %v", want, err)
+		return reflect.Value{}, describeDecodeError(err, "")
 	}
 	return v.Elem(), nil
 }
@@ -193,7 +193,7 @@ func bindOne(a Arg, want reflect.Type, r *http.Request, body map[string]json.Raw
 		}
 		v := reflect.New(want)
 		if err := json.Unmarshal(raw, v.Interface()); err != nil {
-			return reflect.Value{}, fmt.Errorf("%s: %v", a.As, err)
+			return reflect.Value{}, describeDecodeError(err, a.As)
 		}
 		return v.Elem(), nil
 	}
@@ -209,7 +209,7 @@ func fromText(s string, want reflect.Type, name string) (reflect.Value, error) {
 	}
 	v := reflect.New(want)
 	if err := json.Unmarshal([]byte(s), v.Interface()); err != nil {
-		return reflect.Value{}, fmt.Errorf("%s: %q is not a %s", name, s, want)
+		return reflect.Value{}, fmt.Errorf("%s must be %s", name, expectedWord(want))
 	}
 	return v.Elem(), nil
 }
