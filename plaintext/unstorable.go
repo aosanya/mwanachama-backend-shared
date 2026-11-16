@@ -2,7 +2,6 @@ package plaintext
 
 import (
 	"errors"
-	"github.com/jackc/pgx/v5/pgconn"
 	"strings"
 )
 
@@ -13,13 +12,20 @@ const (
 	sqlstateUntranslatableCharacter  = "22P05"
 )
 
+type sqlStateError interface {
+	error
+	SQLState() string
+}
+
 func Unstorable(err error) error {
 	if err == nil {
 		return nil
 	}
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && (pgErr.Code == sqlstateCharacterNotInRepertoire || pgErr.Code == sqlstateUntranslatableCharacter) {
-		return ErrUnstorableText
+	var stateErr sqlStateError
+	if errors.As(err, &stateErr) {
+		if state := stateErr.SQLState(); state == sqlstateCharacterNotInRepertoire || state == sqlstateUntranslatableCharacter {
+			return ErrUnstorableText
+		}
 	}
 	if strings.Contains(err.Error(), "invalid byte sequence for encoding") {
 		return ErrUnstorableText
