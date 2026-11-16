@@ -140,3 +140,51 @@ func TestNoSmallCountIsRecoverableFromThePublishedFigures(t *testing.T) {
 		}
 	}
 }
+func TestFoldSmallMergesSmallCellsIntoOther(t *testing.T) {
+	kept, folded, err := FoldSmall([]Cell{{"a", 12}, {"b", 2}, {"c", 3}, {"d", 0}, {"e", 5}}, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(folded) != 2 || folded[0] != "b" || folded[1] != "c" {
+		t.Fatalf("folded = %v", folded)
+	}
+	want := []Cell{{"a", 12}, {"d", 0}, {"e", 5}, {OtherKey, 5}}
+	if len(kept) != len(want) {
+		t.Fatalf("kept = %v", kept)
+	}
+	for i := range want {
+		if kept[i] != want[i] {
+			t.Fatalf("kept = %v", kept)
+		}
+	}
+}
+func TestFoldSmallWithholdsAnOtherCellThatIsStillSmall(t *testing.T) {
+	kept, _, err := FoldSmall([]Cell{{"a", 12}, {"b", 2}, {"c", 9}}, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := Apply(kept, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, n := published(r, OtherKey); ok || n != 0 {
+		t.Fatal("small other cell published")
+	}
+	hidden := 0
+	for _, o := range r.Outcomes {
+		if !o.Published {
+			hidden++
+		}
+	}
+	if hidden < 2 {
+		t.Fatal("lone suppression is recoverable")
+	}
+}
+func TestFoldSmallRejectsReservedKeyAndLowThreshold(t *testing.T) {
+	if _, _, err := FoldSmall([]Cell{{OtherKey, 9}}, 5); !errors.Is(err, ErrReservedKey) {
+		t.Fatal(err)
+	}
+	if _, _, err := FoldSmall([]Cell{{"a", 9}}, 1); !errors.Is(err, ErrThreshold) {
+		t.Fatal(err)
+	}
+}

@@ -24,8 +24,34 @@ var (
 	ErrThreshold      = errors.New("threshold must be at least 2")
 	ErrNegativeCount  = errors.New("count must not be negative")
 	ErrDuplicateGroup = errors.New("group key appears twice")
+	ErrReservedKey    = errors.New("group key is reserved for the other cell")
 )
 
+const OtherKey = "other"
+
+func FoldSmall(cells []Cell, threshold int) ([]Cell, []string, error) {
+	if threshold < 2 {
+		return nil, nil, ErrThreshold
+	}
+	kept := make([]Cell, 0, len(cells)+1)
+	var folded []string
+	sum := 0
+	for _, c := range cells {
+		if c.Key == OtherKey {
+			return nil, nil, fmt.Errorf("%w: %s", ErrReservedKey, c.Key)
+		}
+		if c.Count > 0 && c.Count < threshold {
+			folded = append(folded, c.Key)
+			sum += c.Count
+			continue
+		}
+		kept = append(kept, c)
+	}
+	if len(folded) > 0 {
+		kept = append(kept, Cell{Key: OtherKey, Count: sum})
+	}
+	return kept, folded, nil
+}
 func Apply(cells []Cell, threshold int) (Result, error) {
 	if threshold < 2 {
 		return Result{}, ErrThreshold
