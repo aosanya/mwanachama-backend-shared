@@ -13,6 +13,9 @@ The Go module every mwanachama backend repo builds on. Module path `github.com/a
 | `geo` | Points, polygons, distance and bounding boxes for geometry fields |
 | `vocab` | The closed-membership-set-plus-transition-table idiom |
 | `mcpui` | The shared stylesheet for hand-rolled MCP Apps dashboard views |
+| `consent` | The `Gate` that answers whether an actor has a live consent on record, `Require`, which asks it (a nil gate allows), and `ErrRequired` and `ErrWithdrawn`, the two refusals |
+| `disclosure` | Small-count suppression for published figures: `FoldSmall` folds cells under a threshold into an `other` cell, and `Apply` returns the outcomes with each marked published or suppressed |
+| `plaintext` | Checks that a value is text that shows (`CheckLine`, `CheckText`, `CheckJSONStrings` refuse NUL, unseen and line-breaking characters), folds names to a comparable form (`FoldName`, `FoldDrawnName`, `FoldLookalike`, `SameName`), and `Unstorable`, which recognises the database refusing bytes it cannot store |
 | `events` | The trivial publish contract for domain events |
 | `gormutil`, `gormtest` | GORM helpers and the sqlite and Postgres test-database harness |
 | `orgsettings`, `orgpolicy` | Organization-wide branding and policy numbers |
