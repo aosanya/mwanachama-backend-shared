@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/aosanya/mwanachama-backend-shared/httpwire"
+	"github.com/aosanya/mwanachama-backend-shared/plaintext"
 	"net/http"
 	"reflect"
 	"sort"
@@ -143,6 +144,10 @@ func handlerFor(op Operation, method reflect.Value, table map[error]int, fallbac
 		results := method.Call(append([]reflect.Value{reflect.ValueOf(ctx)}, args...))
 		if last := results[len(results)-1]; !last.IsNil() {
 			callErr := last.Interface().(error)
+			if refusal := plaintext.Unstorable(callErr); refusal != nil {
+				httpwire.WriteErr(w, http.StatusBadRequest, refusal.Error())
+				return
+			}
 			answer := resolve(callErr, table, fallback)
 			if answer.code == fallback {
 				logFailure(r.Method+" "+r.URL.Path, callErr)
