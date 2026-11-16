@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -120,9 +121,42 @@ func wholeQuery(want reflect.Type, r *http.Request) (reflect.Value, error) {
 		if err != nil {
 			return reflect.Value{}, err
 		}
+		if err := checkQueryMinimum(f, key, field); err != nil {
+			return reflect.Value{}, err
+		}
 		v.Field(i).Set(field)
 	}
 	return v, nil
+}
+func checkQueryMinimum(f reflect.StructField, key string, field reflect.Value) error {
+	min, ok := queryMinimum(f)
+	if !ok {
+		return nil
+	}
+	for field.Kind() == reflect.Pointer {
+		if field.IsNil() {
+			return nil
+		}
+		field = field.Elem()
+	}
+	if field.CanInt() && field.Int() < min {
+		return fmt.Errorf("%s must be a whole number of at least %d", key, min)
+	}
+	return nil
+}
+func queryMinimum(f reflect.StructField) (int64, bool) {
+	tag, ok := f.Tag.Lookup("query")
+	if !ok {
+		return 0, false
+	}
+	for _, option := range strings.Split(tag, ",")[1:] {
+		if text, found := strings.CutPrefix(option, "min="); found {
+			if n, err := strconv.ParseInt(text, 10, 64); err == nil {
+				return n, true
+			}
+		}
+	}
+	return 0, false
 }
 func queryKey(f reflect.StructField) string {
 	tag, ok := f.Tag.Lookup("query")
