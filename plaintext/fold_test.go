@@ -38,3 +38,33 @@ func TestSameNameIgnoringCaseCountsCaseAndSpellingTogether(t *testing.T) {
 		t.Fatal("different names were folded together")
 	}
 }
+func TestFoldDrawnNameGivesOneFormToWidthDotAndSpaceVariants(t *testing.T) {
+	want := FoldDrawnName("Kertváros körzet")
+	for _, variant := range []string{"Ｋertváros körzet", "Kertváros ｋöｒｚｅｔ", "Kertváros körzet.", "Kertváros körzet...", "Kertváros körzet．", "Kertváros körzet. ", "Kertváros körzet ", "Kertváros  körzet", "Kertváros körzet", "Kertváros　körzet", "Kertváros körzet", " Kertváros körzet "} {
+		if got := FoldDrawnName(variant); got != want {
+			t.Errorf("FoldDrawnName(%q) = %q, want %q", variant, got, want)
+		}
+	}
+}
+func TestFoldDrawnNameKeepsAccentsAndPunctuationApart(t *testing.T) {
+	seen := map[string]string{}
+	for _, name := range []string{"Kertváros körzet", "Kertvaros korzet", "Kertváros körzet 2", "Kertváros. körzet", ".Kertváros körzet", "Kertváros-körzet", "Kertváros körzet ház"} {
+		key := FoldDrawnName(name)
+		if other, taken := seen[key]; taken {
+			t.Errorf("%q and %q fold together as %q", name, other, key)
+		}
+		seen[key] = name
+	}
+}
+func TestFoldDrawnNameOfOnlyDotsStaysNonEmpty(t *testing.T) {
+	for _, name := range []string{".", "...", ". ."} {
+		if FoldDrawnName(name) == "" {
+			t.Errorf("FoldDrawnName(%q) is empty", name)
+		}
+	}
+}
+func TestFoldDrawnNameIgnoresCase(t *testing.T) {
+	if FoldDrawnName("KERTVÁROS Körzet") != FoldDrawnName("kertváros körzet") {
+		t.Fatal("case was not folded")
+	}
+}
