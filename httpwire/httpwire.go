@@ -13,17 +13,14 @@ func WriteJSON(w http.ResponseWriter, code int, v any) {
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(v)
 }
-
 func WriteErr(w http.ResponseWriter, code int, msg string) {
-	WriteJSON(w, code, map[string]string{"error": msg})
+	WriteJSON(w, code, map[string]string{"error": PlainMessage(msg)})
 }
-
 func ReadJSON(r *http.Request, v any) error {
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	return dec.Decode(v)
 }
-
 func ReadJSONFields(r *http.Request, v any) (map[string]bool, error) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -44,7 +41,6 @@ func ReadJSONFields(r *http.Request, v any) (map[string]bool, error) {
 	}
 	return present, nil
 }
-
 func Bearer(r *http.Request) string {
 	h := r.Header.Get("Authorization")
 	if h == "" {
@@ -57,18 +53,16 @@ func Bearer(r *http.Request) string {
 }
 
 type Route struct {
-	Method  string
-	Path    string
-	Handler http.HandlerFunc
-	Action  string
-
+	Method       string
+	Path         string
+	Handler      http.HandlerFunc
+	Action       string
 	Alternatives []string
 }
 
 func (r Route) Pattern(prefix string) string {
 	return r.Method + " " + prefix + r.Path
 }
-
 func StatusFor(err error, table map[error]int, fallback int) int {
 	for sentinel, code := range table {
 		if errors.Is(err, sentinel) {
