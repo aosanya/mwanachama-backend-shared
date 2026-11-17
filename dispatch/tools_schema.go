@@ -111,20 +111,27 @@ func flatten(op Operation, sl slot, docs map[string]FieldDoc) ([]property, error
 		}
 	}
 
+	named := map[string]bool{}
+	for _, a := range op.Args {
+		if !a.Whole && a.As != "" {
+			named[a.As] = true
+		}
+	}
+
 	var out []property
-	for i := 0; i < sl.typ.NumField(); i++ {
-		f := sl.typ.Field(i)
-		if f.PkgPath != "" || overwritten[f.Name] {
+	for _, at := range fieldsOf(sl.typ) {
+		f := at.field
+		if overwritten[f.Name] {
 			continue
 		}
 		key := jsonKey(f)
 		if sl.arg.From == FromQuery {
 			key = queryKey(f)
 		}
-		if key == "" {
+		if key == "" || (at.embedded && named[key]) {
 			continue
 		}
-		doc := docs[sl.typ.Name()+"."+key]
+		doc := docs[at.owner+"."+key]
 		if doc.ReadOnly {
 			continue
 		}
@@ -220,16 +227,13 @@ func schemaFor(t reflect.Type, docs map[string]FieldDoc, depth int) map[string]a
 		}
 		properties := map[string]any{}
 		required := []string{}
-		for i := 0; i < t.NumField(); i++ {
-			f := t.Field(i)
-			if f.PkgPath != "" {
-				continue
-			}
+		for _, at := range fieldsOf(t) {
+			f := at.field
 			key := jsonKey(f)
 			if key == "" {
 				continue
 			}
-			doc := docs[t.Name()+"."+key]
+			doc := docs[at.owner+"."+key]
 			if doc.ReadOnly {
 				continue
 			}

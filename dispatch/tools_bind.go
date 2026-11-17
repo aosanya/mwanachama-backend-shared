@@ -76,11 +76,8 @@ func wholeFromArgs(op Operation, sl slot, in map[string]json.RawMessage) (reflec
 		return valueFromArgs(sl.typ, in[sl.arg.As], sl.arg.As)
 	}
 	body := map[string]json.RawMessage{}
-	for i := 0; i < sl.typ.NumField(); i++ {
-		f := sl.typ.Field(i)
-		if f.PkgPath != "" {
-			continue
-		}
+	for _, at := range fieldsOf(sl.typ) {
+		f := at.field
 		key := jsonKey(f)
 		if sl.arg.From == FromQuery {
 			key = queryKey(f)
