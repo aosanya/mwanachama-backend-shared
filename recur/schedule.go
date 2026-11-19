@@ -35,6 +35,10 @@ type Schedule struct {
 
 const maxEmptyPeriods = 4000
 
+const lastYear = 9999
+
+var periodLookbacks = []time.Duration{3 * 24 * time.Hour, 45 * 24 * time.Hour, 800 * 24 * time.Hour, 36500 * 24 * time.Hour}
+
 func (s Schedule) Validate() error {
 	if s.Start.IsZero() {
 		return fmt.Errorf("%w: a schedule needs a start", ErrInvalidSchedule)
@@ -106,7 +110,7 @@ func (s Schedule) walk(from time.Time, visit func(time.Time) bool) {
 		found := false
 		for _, c := range cs {
 			t := s.at(c)
-			if !s.End.IsZero() && t.After(s.End) {
+			if t.Year() > lastYear || (!s.End.IsZero() && t.After(s.End)) {
 				return
 			}
 			if t.Before(s.Start) || t.Before(from) {
@@ -149,8 +153,8 @@ func (s Schedule) Between(from, to time.Time) []time.Time {
 	return out
 }
 
-func (s Schedule) Period(at time.Time) (start, end time.Time, ok bool) {
-	s.walk(s.Start, func(t time.Time) bool {
+func (s Schedule) periodFrom(from, at time.Time) (start, end time.Time) {
+	s.walk(from, func(t time.Time) bool {
 		if t.After(at) {
 			if !start.IsZero() {
 				end = t
@@ -160,6 +164,22 @@ func (s Schedule) Period(at time.Time) (start, end time.Time, ok bool) {
 		start = t
 		return true
 	})
+	return start, end
+}
+
+func (s Schedule) Period(at time.Time) (start, end time.Time, ok bool) {
+	for _, lookback := range periodLookbacks {
+		from := at.Add(-lookback)
+		if !from.After(s.Start) {
+			break
+		}
+		if start, end = s.periodFrom(from, at); !start.IsZero() {
+			break
+		}
+	}
+	if start.IsZero() {
+		start, end = s.periodFrom(s.Start, at)
+	}
 	if start.IsZero() {
 		return time.Time{}, time.Time{}, false
 	}

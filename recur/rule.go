@@ -287,7 +287,14 @@ func (r Rule) dayAllowed(c civil) bool {
 	return false
 }
 
+const secondsPerDay = 24 * 60 * 60
+
+var maxIntervals = map[Frequency]int{Daily: 3652059, Weekly: 521723, Monthly: 120000, Yearly: 10000}
+
 func (r Rule) period(first civil, k int) []civil {
+	if k > 0 && r.Interval > maxIntervals[r.Freq] {
+		return nil
+	}
 	var out []civil
 	switch r.Freq {
 	case Daily:
@@ -342,11 +349,11 @@ func (r Rule) periodsBetween(first, at civil) int {
 	var n int
 	switch r.Freq {
 	case Daily:
-		n = int(b.Sub(a).Hours() / 24)
+		n = int((b.Unix() - a.Unix()) / secondsPerDay)
 	case Weekly:
 		ma := a.AddDate(0, 0, -mondayOffset(a.Weekday()))
 		mb := b.AddDate(0, 0, -mondayOffset(b.Weekday()))
-		n = int(mb.Sub(ma).Hours()/24) / 7
+		n = int((mb.Unix()-ma.Unix())/secondsPerDay) / 7
 	case Monthly:
 		n = (at.y-first.y)*12 + int(at.m-first.m)
 	case Yearly:

@@ -42,6 +42,7 @@ type Arg struct {
 	Into        string `json:"into,omitempty"`
 	Description string `json:"description,omitempty"`
 	Required    bool   `json:"required,omitempty"`
+	Optional    bool   `json:"optional,omitempty"`
 	Field       string `json:"field,omitempty"`
 	Ignored     bool   `json:"ignored,omitempty"`
 	Refers      string `json:"refers,omitempty"`

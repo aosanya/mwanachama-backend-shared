@@ -1,9 +1,11 @@
 package dispatch
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -17,6 +19,7 @@ func bind(op Operation, t reflect.Type, r *http.Request, caller, device Caller) 
 			return nil, fmt.Errorf("the request body is not a JSON object")
 		}
 	}
+
 	out := make([]reflect.Value, 0, len(op.Args))
 	whole := -1
 	position := 0
@@ -54,6 +57,7 @@ func bind(op Operation, t reflect.Type, r *http.Request, caller, device Caller) 
 		}
 		out = append(out, v)
 	}
+
 	if whole >= 0 {
 		if err := overwrite(op, out[whole], r, caller, device); err != nil {
 			return nil, err
@@ -61,6 +65,7 @@ func bind(op Operation, t reflect.Type, r *http.Request, caller, device Caller) 
 	}
 	return out, nil
 }
+
 func overwrite(op Operation, target reflect.Value, r *http.Request, caller, device Caller) error {
 	for _, a := range op.Args {
 		if a.Into == "" {
@@ -85,6 +90,7 @@ func overwrite(op Operation, target reflect.Value, r *http.Request, caller, devi
 	}
 	return nil
 }
+
 func needsBody(op Operation) bool {
 	for _, a := range op.Args {
 		if a.From == FromBody && !a.Whole {
@@ -93,6 +99,7 @@ func needsBody(op Operation) bool {
 	}
 	return false
 }
+
 func wholeBody(want reflect.Type, r *http.Request) (reflect.Value, error) {
 	v := reflect.New(want)
 	dec := json.NewDecoder(r.Body)
@@ -102,6 +109,7 @@ func wholeBody(want reflect.Type, r *http.Request) (reflect.Value, error) {
 	}
 	return v.Elem(), nil
 }
+
 func wholeQuery(want reflect.Type, r *http.Request) (reflect.Value, error) {
 	if want.Kind() != reflect.Struct {
 		return fromText(r.URL.RawQuery, want, "query")
@@ -128,6 +136,7 @@ func wholeQuery(want reflect.Type, r *http.Request) (reflect.Value, error) {
 	}
 	return v, nil
 }
+
 func checkQueryMinimum(f reflect.StructField, key string, field reflect.Value) error {
 	min, ok := queryMinimum(f)
 	if !ok {
@@ -144,6 +153,7 @@ func checkQueryMinimum(f reflect.StructField, key string, field reflect.Value) e
 	}
 	return nil
 }
+
 func queryMinimum(f reflect.StructField) (int64, bool) {
 	tag, ok := f.Tag.Lookup("query")
 	if !ok {
@@ -158,6 +168,7 @@ func queryMinimum(f reflect.StructField) (int64, bool) {
 	}
 	return 0, false
 }
+
 func queryKey(f reflect.StructField) string {
 	tag, ok := f.Tag.Lookup("query")
 	if ok {
@@ -168,6 +179,7 @@ func queryKey(f reflect.StructField) string {
 	}
 	return snakeCase(f.Name)
 }
+
 func snakeCase(field string) string {
 	var b strings.Builder
 	runes := []rune(field)
@@ -189,6 +201,7 @@ func snakeCase(field string) string {
 	}
 	return b.String()
 }
+
 func paramType(t reflect.Type, i int) (reflect.Type, bool, error) {
 	if t.IsVariadic() && i >= t.NumIn()-1 {
 		return t.In(t.NumIn() - 1).Elem(), true, nil
@@ -198,12 +211,23 @@ func paramType(t reflect.Type, i int) (reflect.Type, bool, error) {
 	}
 	return t.In(i), false, nil
 }
+
 func wholeValue(a Arg, want reflect.Type, r *http.Request) (reflect.Value, error) {
 	if a.From == FromQuery {
 		return wholeQuery(want, r)
 	}
+	if a.Optional && bodyIsEmpty(r) {
+		return reflect.New(want).Elem(), nil
+	}
 	return wholeBody(want, r)
 }
+
+func bodyIsEmpty(r *http.Request) bool {
+	raw, err := io.ReadAll(r.Body)
+	r.Body = io.NopCloser(bytes.NewReader(raw))
+	return err == nil && len(bytes.TrimSpace(raw)) == 0
+}
+
 func bindOne(a Arg, want reflect.Type, r *http.Request, body map[string]json.RawMessage, caller, device Caller) (reflect.Value, error) {
 	switch a.From {
 	case FromCaller:
@@ -232,6 +256,7 @@ func bindOne(a Arg, want reflect.Type, r *http.Request, body map[string]json.Raw
 		return v.Elem(), nil
 	}
 }
+
 func fromText(s string, want reflect.Type, name string) (reflect.Value, error) {
 	if want.Kind() == reflect.String {
 		v := reflect.New(want).Elem()
@@ -247,6 +272,7 @@ func fromText(s string, want reflect.Type, name string) (reflect.Value, error) {
 	}
 	return v.Elem(), nil
 }
+
 func fromTexts(values []string, want reflect.Type, name string) (reflect.Value, error) {
 	if want.Kind() == reflect.Slice {
 		out := reflect.MakeSlice(want, 0, len(values))
@@ -264,6 +290,7 @@ func fromTexts(values []string, want reflect.Type, name string) (reflect.Value, 
 	}
 	return fromText(values[0], want, name)
 }
+
 func callerOf(ctx context.Context, caller Caller) string {
 	if caller == nil {
 		return ""
