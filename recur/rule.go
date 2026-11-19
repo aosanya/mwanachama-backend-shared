@@ -160,7 +160,31 @@ func (r Rule) Validate() error {
 	if r.Freq == Yearly && len(r.ByMonth) == 0 && (len(r.ByDay) > 0 || len(r.ByMonthDay) > 0) {
 		return fmt.Errorf("%w: a yearly rule naming days must name its months", ErrInvalidRule)
 	}
+	if !r.monthDaysCanOccur() {
+		return fmt.Errorf("%w: BYMONTHDAY names a day that none of the BYMONTH months has", ErrInvalidRule)
+	}
 	return nil
+}
+
+func (r Rule) monthDaysCanOccur() bool {
+	if len(r.ByMonth) == 0 {
+		return true
+	}
+	for _, d := range r.ByMonthDay {
+		if d < 0 {
+			d = -d
+		}
+		fits := false
+		for _, m := range r.ByMonth {
+			if d <= daysIn(2000, m) {
+				fits = true
+			}
+		}
+		if !fits {
+			return false
+		}
+	}
+	return true
 }
 
 func (r Rule) String() string {

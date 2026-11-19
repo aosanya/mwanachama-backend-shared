@@ -72,6 +72,8 @@ func TestParseRuleRefuses(t *testing.T) {
 		"FREQ=YEARLY;BYMONTH=13",
 		"FREQ=YEARLY;BYDAY=1MO",
 		"FREQ=WEEKLY;WKST=SU",
+		"FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=31",
+		"FREQ=YEARLY;BYMONTH=2,4;BYMONTHDAY=-31",
 		"FREQ",
 	} {
 		if _, err := ParseRule(s); !errors.Is(err, ErrInvalidRule) {
@@ -247,7 +249,7 @@ func TestNextStopsAtTheEnd(t *testing.T) {
 }
 
 func TestNextGivesUpOnARuleThatNeverMatches(t *testing.T) {
-	s := Schedule{Start: day(nairobi, 2026, 1, 1, 9), Zone: nairobi, Rule: mustRule(t, "FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=30")}
+	s := Schedule{Start: day(nairobi, 2026, 1, 1, 9), Zone: nairobi, Rule: &Rule{Freq: Yearly, Interval: 1, ByMonth: []time.Month{time.February}, ByMonthDay: []int{30}}}
 	if _, ok := s.Next(day(nairobi, 2026, 1, 1, 0)); ok {
 		t.Fatal("february 30 never occurs")
 	}
